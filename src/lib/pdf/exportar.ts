@@ -70,7 +70,7 @@ function dibujarPagina(
   });
 
   // Encabezado
-  const titulo = `${patron.diseno.prenda} · ${patron.nombrePerfil}`;
+  const titulo = aWinAnsi(`${patron.diseno.prenda} - ${patron.nombrePerfil}`);
   pagina.drawText(titulo, {
     x: origenX,
     y: altoPt - cmAPuntos(MARGEN) + 6,
@@ -189,14 +189,15 @@ function dibujarPagina(
     const centro = { x: bboxGlobal.x + bboxGlobal.w / 2, y: bboxGlobal.y + bboxGlobal.h / 2 };
     if (puntoEnTile(centro, tile)) {
       const c = aPdf(centro);
-      pagina.drawText(pp.pieza.nombre, {
-        x: c.x - pp.pieza.nombre.length * 2.4,
+      const nombreLimpio = aWinAnsi(pp.pieza.nombre);
+      pagina.drawText(nombreLimpio, {
+        x: c.x - nombreLimpio.length * 2.4,
         y: c.y,
         size: 10,
         font: ctx.fontBold,
         color: COLOR_TXT,
       });
-      const sub = `cortar ${pp.pieza.cantidad}×${pp.pieza.cortarSobreDoblez ? ' sobre doblez' : ''}`;
+      const sub = `cortar ${pp.pieza.cantidad}x${pp.pieza.cortarSobreDoblez ? ' sobre doblez' : ''}`;
       pagina.drawText(sub, {
         x: c.x - sub.length * 1.7,
         y: c.y - 10,
@@ -223,8 +224,8 @@ function dibujarMarcasUnion(
 
   // Página a la derecha
   if (tile.col < cols - 1) {
-    pagina.drawText(`→ hoja ${numero + 1}`, {
-      x: origenX + ancho - 36,
+    pagina.drawText(`-> hoja ${numero + 1}`, {
+      x: origenX + ancho - 40,
       y: origenY - alto / 2,
       size: fontSize,
       font: ctx.font,
@@ -233,7 +234,7 @@ function dibujarMarcasUnion(
   }
   // Página a la izquierda
   if (tile.col > 0) {
-    pagina.drawText(`hoja ${numero - 1} ←`, {
+    pagina.drawText(`hoja ${numero - 1} <-`, {
       x: origenX + 4,
       y: origenY - alto / 2,
       size: fontSize,
@@ -286,9 +287,36 @@ function puntoEnTile(p: Punto, t: Tile) {
   return p.x >= t.x0 && p.x <= t.x1 && p.y >= t.y0 && p.y <= t.y1;
 }
 
+// Reemplaza caracteres fuera de WinAnsi (que Helvetica no soporta) por ASCII.
+// Necesario porque pdf-lib con fuentes estándar requiere caracteres del codepage WinAnsi.
+function aWinAnsi(texto: string): string {
+  return texto
+    .replace(/[áàä]/g, 'a')
+    .replace(/[éèë]/g, 'e')
+    .replace(/[íìï]/g, 'i')
+    .replace(/[óòö]/g, 'o')
+    .replace(/[úùü]/g, 'u')
+    .replace(/[ÁÀÄ]/g, 'A')
+    .replace(/[ÉÈË]/g, 'E')
+    .replace(/[ÍÌÏ]/g, 'I')
+    .replace(/[ÓÒÖ]/g, 'O')
+    .replace(/[ÚÙÜ]/g, 'U')
+    // Estos sí los soporta WinAnsi:
+    // ñ, Ñ, ¿, ¡ — los dejamos. Quitamos otros símbolos Unicode comunes.
+    .replace(/[→↑]/g, '->')
+    .replace(/[←↓]/g, '<-')
+    .replace(/[·•]/g, '-')
+    .replace(/×/g, 'x')
+    .replace(/[…]/g, '...')
+    .replace(/[""„]/g, '"')
+    .replace(/['‛]/g, "'");
+}
+
 // Descarga un PDF generado como Uint8Array (browser only).
 export function descargarPDF(bytes: Uint8Array, nombre: string) {
-  const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' });
+  // Cast a BlobPart: TS quiere ArrayBuffer estricto, Uint8Array funciona pero la
+  // definición de tipos en versiones nuevas de TS marca SharedArrayBuffer como incompatible.
+  const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

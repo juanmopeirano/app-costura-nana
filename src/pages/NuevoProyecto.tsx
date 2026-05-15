@@ -76,9 +76,12 @@ export default function NuevoProyecto() {
     navigate('/patrones');
   }
 
+  const [errorExport, setErrorExport] = useState<string | null>(null);
+
   async function exportarPdf() {
     if (!patron) return;
     setExportando(true);
+    setErrorExport(null);
     try {
       const { exportarPatronPDF, descargarPDF } = await import('../lib/pdf/exportar');
       const bytes = await exportarPatronPDF(patron);
@@ -89,8 +92,9 @@ export default function NuevoProyecto() {
       descargarPDF(bytes, nombre);
       await guardarPatron(patron);
     } catch (e) {
-      console.error(e);
-      alert('No se pudo generar el PDF. Mirá la consola para más detalle.');
+      console.error('PDF export error:', e);
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      setErrorExport(msg);
     } finally {
       setExportando(false);
     }
@@ -244,6 +248,21 @@ export default function NuevoProyecto() {
             <br />
             Patrón total: {disposicion.bbox.w.toFixed(1)} × {disposicion.bbox.h.toFixed(1)} cm
           </p>
+        )}
+        {errorExport && (
+          <div className="card border-rosa-300 bg-rosa-50 text-xs">
+            <div className="font-medium text-rosa-700 mb-1">Error generando PDF:</div>
+            <pre className="whitespace-pre-wrap text-rosa-700 text-[10px] overflow-auto max-h-32">
+              {errorExport}
+            </pre>
+            <button
+              type="button"
+              className="text-rosa-600 hover:underline mt-1"
+              onClick={() => setErrorExport(null)}
+            >
+              Cerrar
+            </button>
+          </div>
         )}
       </aside>
 
