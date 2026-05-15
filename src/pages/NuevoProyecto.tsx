@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PatronPreview from '../components/PatronPreview';
 import FotoUpload from '../components/FotoUpload';
 import { listarPerfiles } from '../lib/storage/perfiles';
@@ -8,6 +8,7 @@ import { generarPollera } from '../lib/patrones/prendas/pollera';
 import { generarTop } from '../lib/patrones/prendas/top';
 import { generarBlusa } from '../lib/patrones/prendas/blusa';
 import { generarVestido } from '../lib/patrones/prendas/vestido';
+import { obtenerPatron } from '../lib/storage/patrones';
 import { disposicionPlana } from '../lib/pdf/tiler';
 import type {
   Ajuste,
@@ -71,6 +72,8 @@ const RANGO_LARGO: Record<Prenda, { min: number; max: number; defecto: number }>
 
 export default function NuevoProyecto() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const patronIdParam = searchParams.get('id');
   const [perfiles, setPerfiles] = useState<PerfilMedidas[] | null>(null);
   const [perfilId, setPerfilId] = useState<string>('');
   const [prenda, setPrenda] = useState<Prenda>('pollera');
@@ -94,6 +97,35 @@ export default function NuevoProyecto() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Si vino con ?id=..., cargar el patrón guardado
+  useEffect(() => {
+    if (!patronIdParam) return;
+    let cancelado = false;
+    void obtenerPatron(patronIdParam).then((p) => {
+      if (cancelado || !p) return;
+      setPrenda(p.diseno.prenda);
+      setEscote(p.diseno.escote);
+      setManga(p.diseno.manga);
+      setAjuste(p.diseno.ajuste);
+      setTela(p.diseno.tela);
+      setCierre(p.diseno.cierre);
+      setLargo(p.diseno.largo);
+      setMargen(p.diseno.margenCostura);
+      setVariantePollera(p.diseno.variantePollera ?? 'recta');
+      setVarianteVestido(p.diseno.varianteVestido ?? 'simple');
+      setFoto(p.diseno.fotoReferencia);
+      setLargoEditado(true);
+      // Buscar el perfil cuyo nombre coincida (no guardamos perfilId en el patron)
+      void listarPerfiles().then((perfs) => {
+        const enc = perfs.find((x) => x.nombre === p.nombrePerfil);
+        if (enc) setPerfilId(enc.id);
+      });
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [patronIdParam]);
 
   const perfil = useMemo(
     () => perfiles?.find((p) => p.id === perfilId) ?? null,
