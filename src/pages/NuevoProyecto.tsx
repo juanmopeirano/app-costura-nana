@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import PatronPreview from '../components/PatronPreview';
+import FotoUpload from '../components/FotoUpload';
 import { listarPerfiles } from '../lib/storage/perfiles';
 import { guardarPatron } from '../lib/storage/patrones';
 import { generarPollera } from '../lib/patrones/prendas/pollera';
@@ -84,6 +85,7 @@ export default function NuevoProyecto() {
   const [margen, setMargen] = useState<number>(1);
   const [mostrarMargen, setMostrarMargen] = useState(true);
   const [largoEditado, setLargoEditado] = useState(false);
+  const [foto, setFoto] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     void listarPerfiles().then((p) => {
@@ -124,6 +126,7 @@ export default function NuevoProyecto() {
       margenCostura: margen,
       variantePollera: prenda === 'pollera' || prenda === 'vestido' ? variantePollera : undefined,
       varianteVestido: prenda === 'vestido' ? varianteVestido : undefined,
+      fotoReferencia: foto,
     };
     if (prenda === 'top') return generarTop(perfil.medidas, diseno, perfil.nombre);
     if (prenda === 'blusa') return generarBlusa(perfil.medidas, diseno, perfil.nombre);
@@ -131,7 +134,7 @@ export default function NuevoProyecto() {
     return generarPollera(perfil.medidas, diseno, perfil.nombre);
   }, [
     perfil, prenda, escote, manga, ajuste, tela, cierre, largo, margen,
-    variantePollera, varianteVestido,
+    variantePollera, varianteVestido, foto,
   ]);
 
   const [exportando, setExportando] = useState(false);
@@ -206,6 +209,10 @@ export default function NuevoProyecto() {
               </option>
             ))}
           </select>
+        </Bloque>
+
+        <Bloque titulo="Foto de referencia (opcional)">
+          <FotoUpload foto={foto} onCambio={setFoto} />
         </Bloque>
 
         <Bloque titulo="¿Qué prenda?">
