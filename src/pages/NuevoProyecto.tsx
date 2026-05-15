@@ -4,6 +4,7 @@ import PatronPreview from '../components/PatronPreview';
 import { listarPerfiles } from '../lib/storage/perfiles';
 import { guardarPatron } from '../lib/storage/patrones';
 import { generarPollera } from '../lib/patrones/prendas/pollera';
+import { disposicionPlana } from '../lib/pdf/tiler';
 import type { Ajuste, Cierre, Diseno, Escote, Manga, PerfilMedidas, Prenda, Tela } from '../lib/patrones/tipos';
 
 const PRENDAS_V1: { id: Prenda; label: string; emoji: string; disponible: boolean }[] = [
@@ -62,10 +63,37 @@ export default function NuevoProyecto() {
     return generarPollera(perfil.medidas, diseno, perfil.nombre);
   }, [perfil, prenda, ajuste, tela, cierre, largo, margen]);
 
+  const [exportando, setExportando] = useState(false);
+
+  const disposicion = useMemo(
+    () => (patron ? disposicionPlana(patron.piezas) : null),
+    [patron],
+  );
+
   async function guardar() {
     if (!patron) return;
     await guardarPatron(patron);
     navigate('/patrones');
+  }
+
+  async function exportarPdf() {
+    if (!patron) return;
+    setExportando(true);
+    try {
+      const { exportarPatronPDF, descargarPDF } = await import('../lib/pdf/exportar');
+      const bytes = await exportarPatronPDF(patron);
+      const fecha = new Date().toISOString().slice(0, 10);
+      const nombre = `patron-${patron.diseno.prenda}-${patron.nombrePerfil}-${fecha}.pdf`
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+      descargarPDF(bytes, nombre);
+      await guardarPatron(patron);
+    } catch (e) {
+      console.error(e);
+      alert('No se pudo generar el PDF. Mirá la consola para más detalle.');
+    } finally {
+      setExportando(false);
+    }
   }
 
   if (perfiles === null) {
@@ -196,14 +224,27 @@ export default function NuevoProyecto() {
           </div>
         </Bloque>
 
-        <div className="flex gap-2 pt-2">
-          <button type="button" className="btn-primary flex-1" onClick={guardar} disabled={!patron}>
-            Guardar patrón 💾
+        <div className="flex flex-col gap-2 pt-2">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={exportarPdf}
+            disabled={!patron || exportando}
+          >
+            {exportando ? 'Generando…' : '⬇️ Descargar PDF A4'}
+          </button>
+          <button type="button" className="btn-outline" onClick={guardar} disabled={!patron}>
+            Guardar sin exportar
           </button>
         </div>
-        <p className="text-xs text-tinta/40">
-          Próximo paso: exportar a PDF A4 (Etapa 3). Por ahora podés guardar la previsualización.
-        </p>
+        {disposicion && (
+          <p className="text-xs text-tinta/60">
+            PDF: {disposicion.tiles.length} hoja{disposicion.tiles.length === 1 ? '' : 's'} A4 (
+            {disposicion.cols} × {disposicion.rows})
+            <br />
+            Patrón total: {disposicion.bbox.w.toFixed(1)} × {disposicion.bbox.h.toFixed(1)} cm
+          </p>
+        )}
       </aside>
 
       <section className="space-y-2">

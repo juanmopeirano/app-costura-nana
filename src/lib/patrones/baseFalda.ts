@@ -82,6 +82,7 @@ export function baseFaldaPanel(
     nombre: panel === 'delantero' ? 'Falda delantera' : 'Falda posterior',
     cantidad: 1,
     cortarSobreDoblez: true,
+    contornoPuntos,
     contornoPath: pathDesdePuntos(contornoPuntos, true),
     piquetes: [C, D], // marcar línea de cadera
     hilo: {

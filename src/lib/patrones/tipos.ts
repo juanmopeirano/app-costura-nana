@@ -64,7 +64,8 @@ export type Pieza = {
   nombre: string;
   cantidad: number;
   cortarSobreDoblez: boolean;
-  contornoPath: string; // SVG path data en cm
+  contornoPuntos: Punto[]; // polilínea cerrada en cm (origen del molde)
+  contornoPath: string; // SVG path data derivado de contornoPuntos
   piquetes: Punto[];
   hilo: Linea;
   pinzas: Linea[];
