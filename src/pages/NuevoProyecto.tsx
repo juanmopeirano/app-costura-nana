@@ -3,12 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PatronPreview from '../components/PatronPreview';
 import FotoUpload from '../components/FotoUpload';
 import { listarPerfiles } from '../lib/storage/perfiles';
-import { guardarPatron } from '../lib/storage/patrones';
+import { guardarPatron, obtenerPatron } from '../lib/storage/patrones';
 import { generarPollera } from '../lib/patrones/prendas/pollera';
 import { generarTop } from '../lib/patrones/prendas/top';
 import { generarBlusa } from '../lib/patrones/prendas/blusa';
 import { generarVestido } from '../lib/patrones/prendas/vestido';
-import { obtenerPatron } from '../lib/storage/patrones';
 import { disposicionPlana } from '../lib/pdf/tiler';
 import type {
   Ajuste,
@@ -22,26 +21,39 @@ import type {
   VariantePollera,
   VarianteVestido,
 } from '../lib/patrones/tipos';
+import {
+  IconCheck,
+  IconClose,
+  IconDownload,
+  IconDress,
+  IconRuler,
+  IconScissors,
+  IconShirt,
+  IconSkirt,
+} from '../components/Icon';
 
-const PRENDAS_V1: { id: Prenda; label: string; emoji: string; disponible: boolean }[] = [
-  { id: 'pollera', label: 'Pollera', emoji: '🩱', disponible: true },
-  { id: 'top', label: 'Top', emoji: '👚', disponible: true },
-  { id: 'blusa', label: 'Blusa', emoji: '👕', disponible: true },
-  { id: 'vestido', label: 'Vestido', emoji: '👗', disponible: true },
+type PrendaCfg = {
+  id: Prenda;
+  label: string;
+  icon: React.ReactNode;
+  disponible: boolean;
+};
+
+const PRENDAS_V1: PrendaCfg[] = [
+  { id: 'pollera', label: 'Pollera', icon: <IconSkirt size={22} />, disponible: true },
+  { id: 'top', label: 'Top', icon: <IconShirt size={22} />, disponible: true },
+  { id: 'blusa', label: 'Blusa', icon: <IconShirt size={22} />, disponible: true },
+  { id: 'vestido', label: 'Vestido', icon: <IconDress size={22} />, disponible: true },
 ];
 
-const VARIANTES_POLLERA: { id: VariantePollera; label: string; disponible: boolean }[] = [
-  { id: 'recta', label: 'Recta', disponible: true },
-  { id: 'a_line', label: 'A-line', disponible: true },
-  { id: 'sirena', label: 'Sirena', disponible: true },
-  { id: 'vuelo', label: 'Con vuelo', disponible: true },
-  { id: 'pliegues', label: 'Con pliegues', disponible: false },
-];
-
-const VARIANTES_VESTIDO: { id: VarianteVestido; label: string; disponible: boolean }[] = [
-  { id: 'simple', label: 'Simple', disponible: true },
-  { id: 'corte_frances', label: 'Corte francés', disponible: false },
-  { id: 'corte_princesa', label: 'Corte princesa', disponible: false },
+const ESCOTES: { id: Escote; label: string }[] = [
+  { id: 'redondo', label: 'Redondo' },
+  { id: 'v', label: 'V' },
+  { id: 'cuadrado', label: 'Cuadrado' },
+  { id: 'barco', label: 'Barco' },
+  { id: 'bebe', label: 'Bebé' },
+  { id: 'camisero', label: 'Camisero' },
+  { id: 'nehru', label: 'Nehru' },
 ];
 
 const MANGAS: { id: Manga; label: string }[] = [
@@ -53,14 +65,18 @@ const MANGAS: { id: Manga; label: string }[] = [
   { id: 'raglan', label: 'Raglán' },
 ];
 
-const ESCOTES: { id: Escote; label: string }[] = [
-  { id: 'redondo', label: 'Redondo' },
-  { id: 'v', label: 'V' },
-  { id: 'cuadrado', label: 'Cuadrado' },
-  { id: 'barco', label: 'Barco' },
-  { id: 'bebe', label: 'Bebé' },
-  { id: 'camisero', label: 'Camisero' },
-  { id: 'nehru', label: 'Nehru' },
+const VARIANTES_POLLERA: { id: VariantePollera; label: string; disponible: boolean }[] = [
+  { id: 'recta', label: 'Recta', disponible: true },
+  { id: 'a_line', label: 'A-line', disponible: true },
+  { id: 'sirena', label: 'Sirena', disponible: true },
+  { id: 'vuelo', label: 'Con vuelo', disponible: true },
+  { id: 'pliegues', label: 'Pliegues', disponible: false },
+];
+
+const VARIANTES_VESTIDO: { id: VarianteVestido; label: string; disponible: boolean }[] = [
+  { id: 'simple', label: 'Simple', disponible: true },
+  { id: 'corte_frances', label: 'Corte francés', disponible: false },
+  { id: 'corte_princesa', label: 'Corte princesa', disponible: false },
 ];
 
 const RANGO_LARGO: Record<Prenda, { min: number; max: number; defecto: number }> = {
@@ -89,6 +105,8 @@ export default function NuevoProyecto() {
   const [mostrarMargen, setMostrarMargen] = useState(true);
   const [largoEditado, setLargoEditado] = useState(false);
   const [foto, setFoto] = useState<string | undefined>(undefined);
+  const [exportando, setExportando] = useState(false);
+  const [errorExport, setErrorExport] = useState<string | null>(null);
 
   useEffect(() => {
     void listarPerfiles().then((p) => {
@@ -98,7 +116,6 @@ export default function NuevoProyecto() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Si vino con ?id=..., cargar el patrón guardado
   useEffect(() => {
     if (!patronIdParam) return;
     let cancelado = false;
@@ -116,7 +133,6 @@ export default function NuevoProyecto() {
       setVarianteVestido(p.diseno.varianteVestido ?? 'simple');
       setFoto(p.diseno.fotoReferencia);
       setLargoEditado(true);
-      // Buscar el perfil cuyo nombre coincida (no guardamos perfilId en el patron)
       void listarPerfiles().then((perfs) => {
         const enc = perfs.find((x) => x.nombre === p.nombrePerfil);
         if (enc) setPerfilId(enc.id);
@@ -132,7 +148,6 @@ export default function NuevoProyecto() {
     [perfiles, perfilId],
   );
 
-  // Default largo según la prenda seleccionada (sólo si el usuario no editó)
   useEffect(() => {
     if (largoEditado || !perfil) return;
     const r = RANGO_LARGO[prenda];
@@ -169,8 +184,6 @@ export default function NuevoProyecto() {
     variantePollera, varianteVestido, foto,
   ]);
 
-  const [exportando, setExportando] = useState(false);
-
   const disposicion = useMemo(
     () => (patron ? disposicionPlana(patron.piezas) : null),
     [patron],
@@ -181,8 +194,6 @@ export default function NuevoProyecto() {
     await guardarPatron(patron);
     navigate('/patrones');
   }
-
-  const [errorExport, setErrorExport] = useState<string | null>(null);
 
   async function exportarPdf() {
     if (!patron) return;
@@ -207,29 +218,42 @@ export default function NuevoProyecto() {
   }
 
   if (perfiles === null) {
-    return <div className="card text-tinta/60 text-sm">Cargando…</div>;
+    return <div className="card text-tinta-600 text-sm">Cargando…</div>;
   }
 
   if (perfiles.length === 0) {
     return (
-      <div className="card space-y-3">
-        <h1 className="font-display text-2xl text-rosa-700">Nuevo proyecto</h1>
-        <p className="text-sm text-tinta/70">
-          Para crear un patrón primero necesitás un perfil con tus medidas.
+      <div className="max-w-2xl mx-auto card-stitched space-y-4 text-center py-12">
+        <div className="text-baya-300 mx-auto w-fit">
+          <IconRuler size={48} />
+        </div>
+        <h1 className="font-display text-3xl text-tinta-900">
+          Primero necesitamos tus medidas
+        </h1>
+        <p className="text-tinta-600 max-w-md mx-auto">
+          Para generar un patrón a medida hay que tomar las medidas corporales.
+          Es la única parte que no podemos hacer automáticamente.
         </p>
-        <Link to="/medidas/nueva" className="btn-primary inline-flex w-fit">
-          Tomar mis medidas
+        <Link to="/medidas/nueva" className="btn-primary inline-flex">
+          <IconRuler size={16} /> Tomar mis medidas
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="grid lg:grid-cols-[360px_1fr] gap-6">
-      <aside className="space-y-4">
-        <h1 className="font-display text-3xl text-rosa-700">Nuevo proyecto</h1>
+    <div className="grid lg:grid-cols-[380px_1fr] gap-6">
+      <aside className="space-y-3">
+        <header>
+          <p className="eyebrow mb-1 flex items-center gap-1.5">
+            <IconScissors size={12} /> Editor
+          </p>
+          <h1 className="font-display text-3xl text-tinta-900">
+            {patronIdParam ? 'Editar patrón' : 'Nuevo patrón'}
+          </h1>
+        </header>
 
-        <Bloque titulo="¿De quién es el patrón?">
+        <Seccion titulo="¿De quién?">
           <select
             className="input"
             value={perfilId}
@@ -237,264 +261,207 @@ export default function NuevoProyecto() {
           >
             {perfiles.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.nombre} (busto {p.medidas.busto} · cintura {p.medidas.cintura})
+                {p.nombre} (B {p.medidas.busto} · C {p.medidas.cintura} · Ca {p.medidas.cadera})
               </option>
             ))}
           </select>
-        </Bloque>
+        </Seccion>
 
-        <Bloque titulo="Foto de referencia (opcional)">
-          <FotoUpload foto={foto} onCambio={setFoto} />
-        </Bloque>
-
-        <Bloque titulo="¿Qué prenda?">
-          <div className="grid grid-cols-2 gap-2">
+        <Seccion titulo="¿Qué prenda?">
+          <div className="grid grid-cols-4 gap-1.5">
             {PRENDAS_V1.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 disabled={!p.disponible}
                 onClick={() => p.disponible && setPrenda(p.id)}
-                className={`p-3 rounded-xl border text-left transition ${
+                className={`relative p-2.5 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
                   prenda === p.id
-                    ? 'bg-rosa-500 text-white border-rosa-500'
-                    : p.disponible
-                    ? 'bg-white border-rosa-100 hover:bg-rosa-50'
-                    : 'bg-marfil border-rosa-50 text-tinta/30 cursor-not-allowed'
+                    ? 'bg-baya-700 text-crema-50 border-baya-700 shadow-paper'
+                    : 'bg-crema-50 border-baya-200 text-tinta-800 hover:border-baya-400 hover:bg-baya-50'
                 }`}
               >
-                <div className="text-xl">{p.emoji}</div>
-                <div className="text-sm font-medium">{p.label}</div>
-                {!p.disponible && <div className="text-[10px]">próximamente</div>}
+                {p.icon}
+                <span className="text-xs font-medium">{p.label}</span>
               </button>
             ))}
           </div>
-        </Bloque>
+        </Seccion>
+
+        <Seccion titulo="Foto de referencia (opcional)">
+          <FotoUpload foto={foto} onCambio={setFoto} />
+        </Seccion>
 
         {(prenda === 'pollera' || prenda === 'vestido') && (
-          <Bloque titulo="Variante de pollera">
-            <div className="grid grid-cols-3 gap-1">
-              {VARIANTES_POLLERA.map(({ id, label, disponible }) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={!disponible}
-                  onClick={() => disponible && setVariantePollera(id)}
-                  className={`py-2 text-xs rounded-lg border transition ${
-                    variantePollera === id
-                      ? 'bg-rosa-500 text-white border-rosa-500'
-                      : disponible
-                      ? 'bg-white border-rosa-100 hover:bg-rosa-50'
-                      : 'bg-marfil border-rosa-50 text-tinta/30 cursor-not-allowed'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </Bloque>
+          <Seccion titulo="Variante de pollera">
+            <Pills
+              value={variantePollera}
+              onChange={setVariantePollera}
+              options={VARIANTES_POLLERA}
+            />
+          </Seccion>
         )}
 
         {prenda === 'vestido' && (
-          <Bloque titulo="Corte del vestido">
-            <div className="grid grid-cols-3 gap-1">
-              {VARIANTES_VESTIDO.map(({ id, label, disponible }) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={!disponible}
-                  onClick={() => disponible && setVarianteVestido(id)}
-                  className={`py-2 text-xs rounded-lg border transition ${
-                    varianteVestido === id
-                      ? 'bg-rosa-500 text-white border-rosa-500'
-                      : disponible
-                      ? 'bg-white border-rosa-100 hover:bg-rosa-50'
-                      : 'bg-marfil border-rosa-50 text-tinta/30 cursor-not-allowed'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </Bloque>
+          <Seccion titulo="Corte del vestido">
+            <Pills value={varianteVestido} onChange={setVarianteVestido} options={VARIANTES_VESTIDO} />
+          </Seccion>
         )}
 
         {prenda !== 'pollera' && (
-          <Bloque titulo="Escote">
-            <div className="grid grid-cols-3 gap-1">
-              {ESCOTES.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setEscote(id)}
-                  className={`py-2 text-xs rounded-lg border transition ${
-                    escote === id
-                      ? 'bg-rosa-500 text-white border-rosa-500'
-                      : 'bg-white border-rosa-100 hover:bg-rosa-50'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </Bloque>
+          <Seccion titulo="Escote">
+            <Pills value={escote} onChange={setEscote} options={ESCOTES.map((e) => ({ ...e, disponible: true }))} />
+          </Seccion>
         )}
 
         {prenda !== 'pollera' && (
-          <Bloque titulo="Manga">
-            <div className="grid grid-cols-3 gap-1">
-              {MANGAS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setManga(id)}
-                  className={`py-2 text-xs rounded-lg border transition ${
-                    manga === id
-                      ? 'bg-rosa-500 text-white border-rosa-500'
-                      : 'bg-white border-rosa-100 hover:bg-rosa-50'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          <Seccion titulo="Manga">
+            <Pills value={manga} onChange={setManga} options={MANGAS.map((m) => ({ ...m, disponible: true }))} />
             {(manga === 'kimona' || manga === 'raglan') && (
-              <p className="text-[10px] text-tinta/50 mt-1">
-                Vista previa simplificada. La modificación del corpiño para {manga} se incluye en próxima versión.
+              <p className="text-[11px] text-tinta-500 mt-1.5 italic">
+                Vista previa simplificada. La modificación del corpiño se incluye en próxima versión.
               </p>
             )}
-          </Bloque>
+          </Seccion>
         )}
 
-        <Bloque titulo="Ajuste">
-          <Radios
-            value={ajuste}
-            onChange={setAjuste}
-            options={[
-              ['ajustado', 'Ajustado'],
-              ['regular', 'Regular'],
-              ['holgado', 'Holgado'],
-            ]}
-          />
-        </Bloque>
+        <Seccion titulo="Ajuste y tela">
+          <div className="space-y-2">
+            <Pills
+              value={ajuste}
+              onChange={setAjuste}
+              options={[
+                { id: 'ajustado', label: 'Ajustado', disponible: true },
+                { id: 'regular', label: 'Regular', disponible: true },
+                { id: 'holgado', label: 'Holgado', disponible: true },
+              ]}
+            />
+            <select
+              className="input !py-2 text-sm"
+              value={tela}
+              onChange={(e) => setTela(e.target.value as Tela)}
+            >
+              <option value="plano_ligero">Plana ligera (algodón fino, popelina)</option>
+              <option value="plano_medio">Plana media (algodón, lino)</option>
+              <option value="plano_pesado">Plana pesada (gabardina, denim)</option>
+              <option value="punto">Punto / jersey</option>
+            </select>
+          </div>
+        </Seccion>
 
-        <Bloque titulo="Tela">
-          <select className="input" value={tela} onChange={(e) => setTela(e.target.value as Tela)}>
-            <option value="plano_ligero">Plana ligera (algodón fino, popelina)</option>
-            <option value="plano_medio">Plana media (algodón normal, lino)</option>
-            <option value="plano_pesado">Plana pesada (gabardina, denim)</option>
-            <option value="punto">Punto / jersey (con elasticidad)</option>
-          </select>
-        </Bloque>
-
-        <Bloque titulo="Cierre">
-          <select className="input" value={cierre} onChange={(e) => setCierre(e.target.value as Cierre)}>
+        <Seccion titulo="Cierre">
+          <select
+            className="input !py-2 text-sm"
+            value={cierre}
+            onChange={(e) => setCierre(e.target.value as Cierre)}
+          >
             <option value="cremallera_invisible">Cremallera invisible</option>
             <option value="cremallera_visible">Cremallera visible</option>
             <option value="botones">Botones</option>
             <option value="elastico">Elástico</option>
             <option value="ninguno">Sin cierre</option>
           </select>
-        </Bloque>
+        </Seccion>
 
-        <Bloque titulo="Largo">
-          <input
-            type="range"
+        <Seccion titulo={`Largo · ${largo} cm`}>
+          <Slider
             min={RANGO_LARGO[prenda].min}
             max={RANGO_LARGO[prenda].max}
             step={1}
             value={largo}
-            onChange={(e) => {
-              setLargo(parseFloat(e.target.value));
+            onChange={(v) => {
+              setLargo(v);
               setLargoEditado(true);
             }}
-            className="w-full"
           />
-          <div className="text-xs text-tinta/60">{largo} cm</div>
-        </Bloque>
+        </Seccion>
 
-        <Bloque titulo="Margen de costura">
-          <input
-            type="range"
-            min={0.5}
-            max={2.5}
-            step={0.5}
-            value={margen}
-            onChange={(e) => setMargen(parseFloat(e.target.value))}
-            className="w-full"
-          />
-          <div className="text-xs text-tinta/60 flex items-center justify-between">
-            <span>{margen} cm</span>
-            <label className="inline-flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={mostrarMargen}
-                onChange={(e) => setMostrarMargen(e.target.checked)}
-              />
-              mostrar en preview
-            </label>
-          </div>
-        </Bloque>
+        <Seccion titulo={`Margen de costura · ${margen} cm`}>
+          <Slider min={0.5} max={2.5} step={0.5} value={margen} onChange={setMargen} />
+          <label className="inline-flex items-center gap-1.5 text-xs text-tinta-600 mt-1">
+            <input
+              type="checkbox"
+              checked={mostrarMargen}
+              onChange={(e) => setMostrarMargen(e.target.checked)}
+              className="accent-baya-700"
+            />
+            Mostrar margen en la vista previa
+          </label>
+        </Seccion>
 
-        <div className="flex flex-col gap-2 pt-2">
+        <div className="flex flex-col gap-2 pt-3 sticky bottom-20 sm:bottom-2 z-10">
           <button
             type="button"
             className="btn-primary"
             onClick={exportarPdf}
             disabled={!patron || exportando}
           >
-            {exportando ? 'Generando…' : '⬇️ Descargar PDF A4'}
+            {exportando ? (
+              'Generando…'
+            ) : (
+              <>
+                <IconDownload size={16} /> Descargar PDF A4
+              </>
+            )}
           </button>
           <button type="button" className="btn-outline" onClick={guardar} disabled={!patron}>
-            Guardar sin exportar
+            <IconCheck size={14} /> Guardar sin exportar
           </button>
         </div>
+
         {disposicion && (
-          <p className="text-xs text-tinta/60">
-            PDF: {disposicion.tiles.length} hoja{disposicion.tiles.length === 1 ? '' : 's'} A4 (
-            {disposicion.cols} × {disposicion.rows})
-            <br />
-            Patrón total: {disposicion.bbox.w.toFixed(1)} × {disposicion.bbox.h.toFixed(1)} cm
+          <p className="text-xs text-tinta-500 leading-relaxed">
+            <span className="font-semibold text-tinta-700">{disposicion.tiles.length} hoja{disposicion.tiles.length === 1 ? '' : 's'} A4</span>{' '}
+            ({disposicion.cols} × {disposicion.rows}) ·{' '}
+            patrón {disposicion.bbox.w.toFixed(1)} × {disposicion.bbox.h.toFixed(1)} cm
           </p>
         )}
+
         {errorExport && (
-          <div className="card border-rosa-300 bg-rosa-50 text-xs">
-            <div className="font-medium text-rosa-700 mb-1">Error generando PDF:</div>
-            <pre className="whitespace-pre-wrap text-rosa-700 text-[10px] overflow-auto max-h-32">
+          <div className="card border-baya-300 bg-baya-50 text-xs space-y-1.5">
+            <div className="font-medium text-baya-700 flex items-center justify-between">
+              <span>Error generando PDF</span>
+              <button onClick={() => setErrorExport(null)} aria-label="Cerrar">
+                <IconClose size={14} />
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap text-baya-700 text-[10px] overflow-auto max-h-32 font-mono">
               {errorExport}
             </pre>
-            <button
-              type="button"
-              className="text-rosa-600 hover:underline mt-1"
-              onClick={() => setErrorExport(null)}
-            >
-              Cerrar
-            </button>
           </div>
         )}
       </aside>
 
-      <section className="space-y-2">
-        <h2 className="font-display text-2xl text-rosa-700">Previsualización</h2>
+      <section className="space-y-3 lg:sticky lg:top-20 lg:self-start">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-2xl text-tinta-900">Previsualización</h2>
+          {patron && (
+            <span className="text-xs text-tinta-500">
+              {patron.piezas.length} piezas · {patron.diseno.prenda}
+            </span>
+          )}
+        </div>
         {patron ? (
           <PatronPreview patron={patron} mostrarMargen={mostrarMargen} margen={margen} />
         ) : (
-          <div className="card text-tinta/60 text-sm">Elegí un perfil para generar el patrón.</div>
+          <div className="card text-tinta-600 text-sm">
+            Elegí un perfil para generar el patrón.
+          </div>
         )}
         {patron && (
-          <div className="card text-xs text-tinta/70 space-y-1">
-            <div>
-              <span className="font-semibold text-tinta">Piezas:</span> {patron.piezas.length}
-            </div>
-            {patron.piezas.map((p, i) => (
-              <div key={i} className="flex justify-between">
-                <span>{p.nombre}</span>
-                <span>
-                  {p.bbox.w.toFixed(1)} × {p.bbox.h.toFixed(1)} cm · cortar {p.cantidad}×
-                  {p.cortarSobreDoblez && ' sobre doblez'}
-                </span>
-              </div>
-            ))}
+          <div className="card !p-3 text-xs text-tinta-700">
+            <p className="eyebrow mb-2">Detalle de piezas</p>
+            <ul className="space-y-1">
+              {patron.piezas.map((p, i) => (
+                <li key={i} className="flex justify-between border-b border-dashed border-baya-100 last:border-0 py-1">
+                  <span>{p.nombre}</span>
+                  <span className="text-tinta-500">
+                    {p.bbox.w.toFixed(1)} × {p.bbox.h.toFixed(1)} cm · cortar {p.cantidad}×
+                    {p.cortarSobreDoblez && ' / doblez'}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </section>
@@ -502,40 +469,71 @@ export default function NuevoProyecto() {
   );
 }
 
-function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="card !p-3 space-y-2">
-      <div className="text-sm font-semibold text-tinta">{titulo}</div>
+    <div className="card !p-3.5 space-y-2">
+      <h3 className="eyebrow">{titulo}</h3>
       {children}
     </div>
   );
 }
 
-function Radios<T extends string>({
+function Pills<T extends string>({
   value,
   onChange,
   options,
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: [T, string][];
+  options: { id: T; label: string; disponible?: boolean }[];
 }) {
   return (
-    <div className="grid grid-cols-3 gap-1">
-      {options.map(([v, label]) => (
-        <button
-          key={v}
-          type="button"
-          onClick={() => onChange(v)}
-          className={`py-2 text-sm rounded-lg border transition ${
-            value === v
-              ? 'bg-rosa-500 text-white border-rosa-500'
-              : 'bg-white border-rosa-100 hover:bg-rosa-50'
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(({ id, label, disponible = true }) => {
+        const seleccionada = value === id;
+        const klass = !disponible
+          ? 'pill pill-disabled'
+          : seleccionada
+          ? 'pill pill-on'
+          : 'pill pill-off';
+        return (
+          <button
+            key={id}
+            type="button"
+            className={klass}
+            disabled={!disponible}
+            onClick={() => disponible && onChange(id)}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
+  );
+}
+
+function Slider({
+  min,
+  max,
+  step,
+  value,
+  onChange,
+}: {
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+      className="w-full accent-baya-700"
+    />
   );
 }

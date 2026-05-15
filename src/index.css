@@ -10,31 +10,121 @@
   }
 
   body {
-    @apply bg-marfil text-tinta antialiased;
-    font-family: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+    @apply bg-crema-100 text-tinta-800 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(122, 42, 62, 0.035), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(91, 127, 87, 0.04), transparent 40%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-feature-settings: 'ss01', 'ss02';
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: rgba(122, 42, 62, 0.18);
+    color: #2a2520;
   }
 }
 
 @layer components {
+  /* Botones */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-medium text-[0.95rem]
+           transition-all duration-150 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-offset-2
+           focus:ring-offset-crema-100 focus:ring-baya-300 disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:active:scale-100;
   }
   .btn-primary {
-    @apply btn bg-rosa-600 text-white hover:bg-rosa-700 shadow-sm;
+    @apply btn bg-baya-700 text-crema-50 shadow-paper hover:bg-baya-800 hover:shadow-paper-lg;
   }
-  .btn-ghost {
-    @apply btn text-tinta hover:bg-rosa-50;
+  .btn-secondary {
+    @apply btn bg-salvia-600 text-crema-50 shadow-paper hover:bg-salvia-700;
   }
   .btn-outline {
-    @apply btn border border-rosa-200 text-tinta hover:bg-rosa-50;
+    @apply btn border border-baya-200 bg-crema-50 text-tinta-800 hover:border-baya-300 hover:bg-baya-50;
   }
+  .btn-ghost {
+    @apply btn text-tinta-700 hover:bg-baya-50;
+  }
+
+  /* Tarjeta tipo papel */
   .card {
-    @apply rounded-2xl border border-rosa-100 bg-white p-5 shadow-sm;
+    @apply rounded-2xl border border-baya-100 bg-crema-50 p-5 shadow-paper;
   }
+  .card-stitched {
+    @apply card relative;
+    background-image:
+      linear-gradient(135deg, rgba(122, 42, 62, 0.015) 25%, transparent 25%),
+      linear-gradient(225deg, rgba(122, 42, 62, 0.015) 25%, transparent 25%);
+    background-size: 12px 12px;
+  }
+  .card-stitched::before {
+    content: '';
+    @apply absolute pointer-events-none rounded-xl;
+    inset: 8px;
+    border: 1px dashed rgba(122, 42, 62, 0.2);
+  }
+
+  /* Inputs */
   .input {
-    @apply w-full rounded-lg border border-rosa-200 bg-white px-3 py-2 outline-none focus:border-rosa-500 focus:ring-2 focus:ring-rosa-200;
+    @apply w-full rounded-xl border border-baya-200 bg-crema-50 px-3.5 py-2.5
+           text-tinta-900 placeholder:text-tinta-400
+           outline-none transition focus:border-baya-500 focus:ring-2 focus:ring-baya-200;
   }
   .label {
-    @apply block text-sm font-medium text-tinta mb-1;
+    @apply block text-xs font-semibold uppercase tracking-wider text-tinta-700 mb-1.5;
+  }
+
+  /* Pill (chip selector) */
+  .pill {
+    @apply inline-flex items-center justify-center px-3 py-2 text-xs font-medium rounded-full
+           border transition cursor-pointer select-none;
+  }
+  .pill-on {
+    @apply bg-baya-700 text-crema-50 border-baya-700 shadow-sm;
+  }
+  .pill-off {
+    @apply bg-crema-50 text-tinta-800 border-baya-200 hover:border-baya-400 hover:bg-baya-50;
+  }
+  .pill-disabled {
+    @apply bg-crema-200 text-tinta-400 border-crema-200 cursor-not-allowed;
+  }
+
+  /* Divisor con puntadas */
+  .stitch-divider {
+    @apply h-px w-full bg-no-repeat bg-center;
+    background-image: linear-gradient(
+      to right,
+      transparent,
+      rgba(122, 42, 62, 0.3) 50%,
+      transparent
+    );
+    background-size: 100% 1px;
+  }
+  .stitch-divider-dashed {
+    @apply h-px w-full;
+    background-image: repeating-linear-gradient(
+      to right,
+      rgba(122, 42, 62, 0.4) 0 6px,
+      transparent 6px 10px
+    );
+  }
+
+  /* Etiqueta seccional */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-baya-700;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
   }
 }

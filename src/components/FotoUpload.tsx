@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { IconCamera, IconClose } from './Icon';
 
 const MAX_DIM = 1024;
 const CALIDAD = 0.8;
@@ -30,28 +31,36 @@ export default function FotoUpload({ foto, onCambio }: Props) {
   return (
     <div className="space-y-2">
       {foto ? (
-        <div className="relative">
+        <div className="relative rounded-xl overflow-hidden border border-baya-100 shadow-paper">
           <img
             src={foto}
             alt="Foto de referencia"
-            className="w-full max-h-64 object-contain rounded-lg border border-rosa-100 bg-marfil"
+            className="w-full max-h-60 object-contain bg-crema-100"
           />
           <button
             type="button"
             onClick={() => onCambio(undefined)}
-            className="absolute top-2 right-2 bg-white/90 text-rosa-700 px-2 py-1 rounded text-xs hover:bg-rosa-50"
+            className="absolute top-2 right-2 bg-crema-50/95 text-baya-700 p-1.5 rounded-full hover:bg-crema-50 shadow-paper"
+            aria-label="Quitar"
           >
-            Quitar
+            <IconClose size={14} />
           </button>
         </div>
       ) : (
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full p-6 border-2 border-dashed border-rosa-200 rounded-lg text-tinta/60 text-sm hover:bg-rosa-50 hover:border-rosa-300 transition"
+          className="w-full p-6 border-2 border-dashed border-baya-200 rounded-xl text-tinta-600 text-sm hover:bg-baya-50 hover:border-baya-400 transition flex flex-col items-center gap-2"
           disabled={procesando}
         >
-          {procesando ? 'Procesando…' : '📷 Subir foto del diseño'}
+          {procesando ? (
+            'Procesando…'
+          ) : (
+            <>
+              <IconCamera size={28} className="text-baya-500" />
+              <span>Subir foto del diseño</span>
+            </>
+          )}
         </button>
       )}
       <input
@@ -66,9 +75,10 @@ export default function FotoUpload({ foto, onCambio }: Props) {
           e.target.value = '';
         }}
       />
-      {error && <p className="text-xs text-rosa-700">{error}</p>}
-      <p className="text-[10px] text-tinta/40">
-        Sirve sólo como referencia visual. La foto queda en este dispositivo (no se sube a internet).
+      {error && <p className="text-xs text-baya-700">{error}</p>}
+      <p className="text-[10px] text-tinta-500 leading-relaxed">
+        Sirve sólo como referencia visual. La foto queda en este dispositivo
+        (no se sube a internet).
       </p>
     </div>
   );

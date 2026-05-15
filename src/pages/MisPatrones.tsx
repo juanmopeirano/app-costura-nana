@@ -3,6 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { eliminarPatron, listarPatrones } from '../lib/storage/patrones';
 import type { Patron } from '../lib/patrones/tipos';
 import ThumbnailPatron from '../components/ThumbnailPatron';
+import {
+  IconArchive,
+  IconDownload,
+  IconEdit,
+  IconPlus,
+  IconTrash,
+} from '../components/Icon';
 
 const NOMBRE_PRENDA: Record<Patron['diseno']['prenda'], string> = {
   pollera: 'Pollera',
@@ -46,94 +53,127 @@ export default function MisPatrones() {
     }
   }
 
-  function editar(p: Patron) {
-    navigate(`/nuevo?id=${p.id}`);
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl text-rosa-700">Mis patrones</h1>
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow mb-1">Tu archivo</p>
+          <h1 className="font-display text-4xl text-tinta-900">Mis patrones</h1>
+        </div>
         <Link to="/nuevo" className="btn-primary">
-          + Nuevo patrón
+          <IconPlus size={16} /> Nuevo patrón
         </Link>
-      </div>
+      </header>
 
-      {patrones === null && <div className="card text-tinta/60 text-sm">Cargando…</div>}
+      {patrones === null && (
+        <div className="card text-tinta-600 text-sm">Cargando…</div>
+      )}
 
       {patrones && patrones.length === 0 && (
-        <div className="card text-tinta/70 text-sm">
-          Todavía no generaste ningún patrón.{' '}
-          <Link to="/nuevo" className="text-rosa-600 hover:underline">
-            Empezá uno
-          </Link>.
+        <div className="card-stitched text-center py-12 px-4 space-y-4">
+          <div className="text-baya-300 mx-auto w-fit">
+            <IconArchive size={48} />
+          </div>
+          <div>
+            <h2 className="font-display text-2xl text-tinta-900 mb-1">
+              Sin patrones todavía
+            </h2>
+            <p className="text-sm text-tinta-600 max-w-sm mx-auto">
+              Acá se va a archivar cada patrón que generes, con miniatura y
+              opción de re-descargar el PDF o editarlo.
+            </p>
+          </div>
+          <Link to="/nuevo" className="btn-primary inline-flex">
+            <IconPlus size={16} /> Crear el primero
+          </Link>
         </div>
       )}
 
       {patrones && patrones.length > 0 && (
-        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {patrones.map((p) => (
-            <li key={p.id} className="card !p-3 flex flex-col gap-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="font-semibold text-tinta">
-                    {NOMBRE_PRENDA[p.diseno.prenda]}
-                  </div>
-                  <div className="text-xs text-tinta/60">
-                    {p.nombrePerfil} ·{' '}
-                    {new Date(p.createdAt).toLocaleDateString('es-UY', {
-                      day: '2-digit',
-                      month: 'short',
-                    })}
-                  </div>
-                </div>
+            <li key={p.id} className="card !p-0 overflow-hidden hover:shadow-paper-lg transition">
+              <div className="relative bg-crema-100 h-40 flex items-center justify-center p-4 border-b border-baya-100 bg-paper-grid bg-grid-mm">
+                <ThumbnailPatron patron={p} />
                 {p.diseno.fotoReferencia && (
                   <img
                     src={p.diseno.fotoReferencia}
                     alt=""
-                    className="w-10 h-10 rounded object-cover border border-rosa-100"
+                    className="absolute top-2 right-2 w-12 h-12 rounded-lg object-cover border border-baya-200 shadow-paper"
                   />
                 )}
+                <span className="absolute bottom-2 left-2 text-[10px] font-semibold uppercase tracking-wider text-tinta-500">
+                  {p.piezas.length} piezas
+                </span>
               </div>
-              <div className="bg-marfil rounded-lg p-2 h-32 flex items-center justify-center">
-                <ThumbnailPatron patron={p} />
-              </div>
-              <div className="text-[11px] text-tinta/60 space-y-0.5">
-                <div>{p.diseno.ajuste} · {p.diseno.tela.replace('_', ' ')} · {p.diseno.largo}cm</div>
-                <div>
-                  {p.diseno.prenda !== 'pollera' && `escote ${p.diseno.escote} · `}
-                  {p.diseno.prenda !== 'pollera' && p.diseno.manga !== 'sin' && `manga ${p.diseno.manga} · `}
-                  margen {p.diseno.margenCostura}cm · {p.piezas.length} piezas
+              <div className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-display text-xl text-tinta-900 leading-tight">
+                      {NOMBRE_PRENDA[p.diseno.prenda]}
+                    </div>
+                    <p className="text-xs text-tinta-500">
+                      {p.nombrePerfil} ·{' '}
+                      {new Date(p.createdAt).toLocaleDateString('es-UY', {
+                        day: '2-digit',
+                        month: 'short',
+                      })}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-1 mt-1">
-                <button
-                  type="button"
-                  className="btn-primary text-xs flex-1 !py-1.5"
-                  onClick={() => descargar(p)}
-                  disabled={exportandoId === p.id}
-                >
-                  {exportandoId === p.id ? '…' : 'PDF'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-outline text-xs flex-1 !py-1.5"
-                  onClick={() => editar(p)}
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost text-xs !py-1.5"
-                  onClick={() => borrar(p.id)}
-                >
-                  🗑
-                </button>
+                <div className="flex flex-wrap gap-1.5">
+                  <Chip>{p.diseno.ajuste}</Chip>
+                  <Chip>{p.diseno.tela.replace('_', ' ')}</Chip>
+                  <Chip>{p.diseno.largo}cm</Chip>
+                  {p.diseno.prenda !== 'pollera' && <Chip>{p.diseno.escote}</Chip>}
+                  {p.diseno.prenda !== 'pollera' && p.diseno.manga !== 'sin' && (
+                    <Chip>manga {p.diseno.manga}</Chip>
+                  )}
+                </div>
+                <div className="flex gap-1.5 pt-2 border-t border-baya-50">
+                  <button
+                    type="button"
+                    className="btn-primary flex-1 !px-3 !py-1.5 text-sm"
+                    onClick={() => descargar(p)}
+                    disabled={exportandoId === p.id}
+                  >
+                    {exportandoId === p.id ? (
+                      '…'
+                    ) : (
+                      <>
+                        <IconDownload size={14} /> PDF
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline !px-3 !py-1.5 text-sm"
+                    onClick={() => navigate(`/nuevo?id=${p.id}`)}
+                  >
+                    <IconEdit size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost !px-3 !py-1.5 text-sm text-tinta-500 hover:text-baya-700"
+                    onClick={() => borrar(p.id)}
+                    aria-label="Borrar"
+                  >
+                    <IconTrash size={14} />
+                  </button>
+                </div>
               </div>
             </li>
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-crema-200 text-tinta-700">
+      {children}
+    </span>
   );
 }
