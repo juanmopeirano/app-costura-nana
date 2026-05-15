@@ -6,6 +6,7 @@ import { guardarPatron } from '../lib/storage/patrones';
 import { generarPollera } from '../lib/patrones/prendas/pollera';
 import { generarTop } from '../lib/patrones/prendas/top';
 import { generarBlusa } from '../lib/patrones/prendas/blusa';
+import { generarVestido } from '../lib/patrones/prendas/vestido';
 import { disposicionPlana } from '../lib/pdf/tiler';
 import type {
   Ajuste,
@@ -16,13 +17,29 @@ import type {
   PerfilMedidas,
   Prenda,
   Tela,
+  VariantePollera,
+  VarianteVestido,
 } from '../lib/patrones/tipos';
 
 const PRENDAS_V1: { id: Prenda; label: string; emoji: string; disponible: boolean }[] = [
   { id: 'pollera', label: 'Pollera', emoji: '🩱', disponible: true },
   { id: 'top', label: 'Top', emoji: '👚', disponible: true },
   { id: 'blusa', label: 'Blusa', emoji: '👕', disponible: true },
-  { id: 'vestido', label: 'Vestido', emoji: '👗', disponible: false },
+  { id: 'vestido', label: 'Vestido', emoji: '👗', disponible: true },
+];
+
+const VARIANTES_POLLERA: { id: VariantePollera; label: string; disponible: boolean }[] = [
+  { id: 'recta', label: 'Recta', disponible: true },
+  { id: 'a_line', label: 'A-line', disponible: true },
+  { id: 'sirena', label: 'Sirena', disponible: true },
+  { id: 'vuelo', label: 'Con vuelo', disponible: true },
+  { id: 'pliegues', label: 'Con pliegues', disponible: false },
+];
+
+const VARIANTES_VESTIDO: { id: VarianteVestido; label: string; disponible: boolean }[] = [
+  { id: 'simple', label: 'Simple', disponible: true },
+  { id: 'corte_frances', label: 'Corte francés', disponible: false },
+  { id: 'corte_princesa', label: 'Corte princesa', disponible: false },
 ];
 
 const MANGAS: { id: Manga; label: string }[] = [
@@ -58,6 +75,8 @@ export default function NuevoProyecto() {
   const [prenda, setPrenda] = useState<Prenda>('pollera');
   const [escote, setEscote] = useState<Escote>('redondo');
   const [manga, setManga] = useState<Manga>('sin');
+  const [variantePollera, setVariantePollera] = useState<VariantePollera>('recta');
+  const [varianteVestido, setVarianteVestido] = useState<VarianteVestido>('simple');
   const [ajuste, setAjuste] = useState<Ajuste>('regular');
   const [tela, setTela] = useState<Tela>('plano_medio');
   const [cierre, setCierre] = useState<Cierre>('cremallera_invisible');
@@ -103,12 +122,17 @@ export default function NuevoProyecto() {
       tela,
       cierre,
       margenCostura: margen,
-      variantePollera: prenda === 'pollera' ? 'recta' : undefined,
+      variantePollera: prenda === 'pollera' || prenda === 'vestido' ? variantePollera : undefined,
+      varianteVestido: prenda === 'vestido' ? varianteVestido : undefined,
     };
     if (prenda === 'top') return generarTop(perfil.medidas, diseno, perfil.nombre);
     if (prenda === 'blusa') return generarBlusa(perfil.medidas, diseno, perfil.nombre);
+    if (prenda === 'vestido') return generarVestido(perfil.medidas, diseno, perfil.nombre);
     return generarPollera(perfil.medidas, diseno, perfil.nombre);
-  }, [perfil, prenda, escote, manga, ajuste, tela, cierre, largo, margen]);
+  }, [
+    perfil, prenda, escote, manga, ajuste, tela, cierre, largo, margen,
+    variantePollera, varianteVestido,
+  ]);
 
   const [exportando, setExportando] = useState(false);
 
@@ -207,6 +231,54 @@ export default function NuevoProyecto() {
             ))}
           </div>
         </Bloque>
+
+        {(prenda === 'pollera' || prenda === 'vestido') && (
+          <Bloque titulo="Variante de pollera">
+            <div className="grid grid-cols-3 gap-1">
+              {VARIANTES_POLLERA.map(({ id, label, disponible }) => (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={!disponible}
+                  onClick={() => disponible && setVariantePollera(id)}
+                  className={`py-2 text-xs rounded-lg border transition ${
+                    variantePollera === id
+                      ? 'bg-rosa-500 text-white border-rosa-500'
+                      : disponible
+                      ? 'bg-white border-rosa-100 hover:bg-rosa-50'
+                      : 'bg-marfil border-rosa-50 text-tinta/30 cursor-not-allowed'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Bloque>
+        )}
+
+        {prenda === 'vestido' && (
+          <Bloque titulo="Corte del vestido">
+            <div className="grid grid-cols-3 gap-1">
+              {VARIANTES_VESTIDO.map(({ id, label, disponible }) => (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={!disponible}
+                  onClick={() => disponible && setVarianteVestido(id)}
+                  className={`py-2 text-xs rounded-lg border transition ${
+                    varianteVestido === id
+                      ? 'bg-rosa-500 text-white border-rosa-500'
+                      : disponible
+                      ? 'bg-white border-rosa-100 hover:bg-rosa-50'
+                      : 'bg-marfil border-rosa-50 text-tinta/30 cursor-not-allowed'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Bloque>
+        )}
 
         {prenda !== 'pollera' && (
           <Bloque titulo="Escote">

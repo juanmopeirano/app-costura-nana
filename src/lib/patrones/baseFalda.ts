@@ -6,8 +6,34 @@ import { desahogos } from './holgura';
 // "Falda delantera" (espejada en costura central) y "Falda posterior". Cada
 // panel cubre el cuarto del contorno + desahogo + pinza, con curva del costado
 // entre cintura y cadera.
+//
+// La variante (recta / a_line / sirena / vuelo) modifica el ancho del ruedo
+// manteniendo la cintura intacta.
 
 export type PanelFalda = 'delantero' | 'posterior';
+
+// Cuánto se ensancha (o se angosta) el ruedo respecto al ancho de la cadera,
+// expresado en cm extra por panel.
+function ensanchoRuedo(largoTotal: number, alturaCadera: number, variante?: string): number {
+  const distRuedoCadera = Math.max(0, largoTotal - alturaCadera);
+  switch (variante) {
+    case 'a_line':
+      // A-line: el ruedo crece progresivamente desde la cadera
+      return distRuedoCadera * 0.25;
+    case 'vuelo':
+      // Vuelo: ensancha mucho, casi un cuarto de círculo
+      return distRuedoCadera * 0.9;
+    case 'sirena':
+      // Sirena: angosta hasta la rodilla y luego ensancha. Aproximamos
+      // dando un poco de vuelo en los últimos 15cm.
+      return distRuedoCadera > 25 ? 6 : 0;
+    case 'pliegues':
+      return distRuedoCadera * 0.15; // pliegues planos, ligeramente
+    case 'recta':
+    default:
+      return 0;
+  }
+}
 
 export function baseFaldaPanel(
   panel: PanelFalda,
@@ -31,13 +57,17 @@ export function baseFaldaPanel(
 
   const alturaCadera = m.alturaCadera;
   const largoTotal = d.largo > 0 ? d.largo : m.largoFalda;
+  const ensancho = ensanchoRuedo(largoTotal, alturaCadera, d.variantePollera);
 
   // Referencias de puntos (origen en esquina superior-costado del panel)
   // x crece hacia el centro del molde (lomo), y crece hacia abajo.
   const O = punto(0, 0); // costado superior (cintura, costado)
   const C = punto(0, alturaCadera); // costado a la altura de la cadera
-  const B = punto(0, largoTotal); // costado en el ruedo
-  const E = punto(aCadera, largoTotal); // centro/lomo en el ruedo
+  // Para sirena: angosta a la altura de la rodilla
+  const sirena = d.variantePollera === 'sirena';
+  const cinturaSirenaY = sirena ? Math.min(largoTotal - 15, alturaCadera + 30) : -1;
+  const B = punto(-ensancho, largoTotal); // costado en el ruedo (ensanchado hacia afuera)
+  const E = punto(aCadera + ensancho, largoTotal); // centro/lomo en el ruedo
   const D = punto(aCadera, alturaCadera); // cadera lomo
   const A = punto(aCinturaTotal, 0); // centro/lomo en la cintura
 
@@ -67,12 +97,19 @@ export function baseFaldaPanel(
 
   const cinturaPuntos: Punto[] = [cinturaInicio, pinzaA, pinzaPunta, pinzaB, cinturaFin];
 
+  // Para sirena agregamos un waypoint en la rodilla (más angosto)
+  const costadoRecto: Punto[] = sirena && cinturaSirenaY > alturaCadera
+    ? [{ x: 0, y: cinturaSirenaY }]
+    : [];
+
   const contornoPuntos: Punto[] = [
     O,
     ...curvaCostado,
     C,
+    ...costadoRecto,
     B,
     E,
+    ...(sirena && cinturaSirenaY > alturaCadera ? [{ x: aCadera, y: cinturaSirenaY }] : []),
     D,
     A,
     ...cinturaPuntos.slice(1),
@@ -96,3 +133,11 @@ export function baseFaldaPanel(
     bbox: bbox([O, C, B, E, D, A]),
   };
 }
+
+export const VARIANTES_POLLERA = [
+  'recta',
+  'a_line',
+  'sirena',
+  'vuelo',
+  'pliegues',
+] as const;
