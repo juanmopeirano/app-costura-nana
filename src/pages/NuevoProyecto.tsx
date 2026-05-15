@@ -4,27 +4,56 @@ import PatronPreview from '../components/PatronPreview';
 import { listarPerfiles } from '../lib/storage/perfiles';
 import { guardarPatron } from '../lib/storage/patrones';
 import { generarPollera } from '../lib/patrones/prendas/pollera';
+import { generarTop } from '../lib/patrones/prendas/top';
 import { disposicionPlana } from '../lib/pdf/tiler';
-import type { Ajuste, Cierre, Diseno, Escote, Manga, PerfilMedidas, Prenda, Tela } from '../lib/patrones/tipos';
+import type {
+  Ajuste,
+  Cierre,
+  Diseno,
+  Escote,
+  Manga,
+  PerfilMedidas,
+  Prenda,
+  Tela,
+} from '../lib/patrones/tipos';
 
 const PRENDAS_V1: { id: Prenda; label: string; emoji: string; disponible: boolean }[] = [
   { id: 'pollera', label: 'Pollera', emoji: '🩱', disponible: true },
-  { id: 'top', label: 'Top', emoji: '👚', disponible: false },
+  { id: 'top', label: 'Top', emoji: '👚', disponible: true },
   { id: 'blusa', label: 'Blusa', emoji: '👕', disponible: false },
   { id: 'vestido', label: 'Vestido', emoji: '👗', disponible: false },
 ];
+
+const ESCOTES: { id: Escote; label: string }[] = [
+  { id: 'redondo', label: 'Redondo' },
+  { id: 'v', label: 'V' },
+  { id: 'cuadrado', label: 'Cuadrado' },
+  { id: 'barco', label: 'Barco' },
+  { id: 'bebe', label: 'Bebé' },
+  { id: 'camisero', label: 'Camisero' },
+  { id: 'nehru', label: 'Nehru' },
+];
+
+const RANGO_LARGO: Record<Prenda, { min: number; max: number; defecto: number }> = {
+  pollera: { min: 30, max: 110, defecto: 60 },
+  top: { min: 35, max: 80, defecto: 55 },
+  blusa: { min: 50, max: 90, defecto: 62 },
+  vestido: { min: 70, max: 160, defecto: 100 },
+};
 
 export default function NuevoProyecto() {
   const navigate = useNavigate();
   const [perfiles, setPerfiles] = useState<PerfilMedidas[] | null>(null);
   const [perfilId, setPerfilId] = useState<string>('');
   const [prenda, setPrenda] = useState<Prenda>('pollera');
+  const [escote, setEscote] = useState<Escote>('redondo');
   const [ajuste, setAjuste] = useState<Ajuste>('regular');
   const [tela, setTela] = useState<Tela>('plano_medio');
   const [cierre, setCierre] = useState<Cierre>('cremallera_invisible');
   const [largo, setLargo] = useState<number>(60);
   const [margen, setMargen] = useState<number>(1);
   const [mostrarMargen, setMostrarMargen] = useState(true);
+  const [largoEditado, setLargoEditado] = useState(false);
 
   useEffect(() => {
     void listarPerfiles().then((p) => {
@@ -39,29 +68,35 @@ export default function NuevoProyecto() {
     [perfiles, perfilId],
   );
 
-  // Default largo del perfil
+  // Default largo según la prenda seleccionada (sólo si el usuario no editó)
   useEffect(() => {
-    if (perfil && perfil.medidas.largoFalda > 0 && largo === 60) {
-      setLargo(perfil.medidas.largoFalda);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perfil]);
+    if (largoEditado || !perfil) return;
+    const r = RANGO_LARGO[prenda];
+    const m = perfil.medidas;
+    let predeterminado: number;
+    if (prenda === 'pollera') predeterminado = m.largoFalda || r.defecto;
+    else if (prenda === 'top') predeterminado = m.talleAtras + 10;
+    else if (prenda === 'blusa') predeterminado = m.largoBlusa || r.defecto;
+    else predeterminado = m.largoVestido || r.defecto;
+    setLargo(Math.max(r.min, Math.min(r.max, predeterminado)));
+  }, [perfil, prenda, largoEditado]);
 
   const patron = useMemo(() => {
     if (!perfil) return null;
     const diseno: Diseno = {
       prenda,
-      escote: 'redondo' as Escote,
+      escote,
       manga: 'sin' as Manga,
       largo,
       ajuste,
       tela,
       cierre,
       margenCostura: margen,
-      variantePollera: 'recta',
+      variantePollera: prenda === 'pollera' ? 'recta' : undefined,
     };
+    if (prenda === 'top') return generarTop(perfil.medidas, diseno, perfil.nombre);
     return generarPollera(perfil.medidas, diseno, perfil.nombre);
-  }, [perfil, prenda, ajuste, tela, cierre, largo, margen]);
+  }, [perfil, prenda, escote, ajuste, tela, cierre, largo, margen]);
 
   const [exportando, setExportando] = useState(false);
 
@@ -161,6 +196,27 @@ export default function NuevoProyecto() {
           </div>
         </Bloque>
 
+        {prenda !== 'pollera' && (
+          <Bloque titulo="Escote">
+            <div className="grid grid-cols-3 gap-1">
+              {ESCOTES.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setEscote(id)}
+                  className={`py-2 text-xs rounded-lg border transition ${
+                    escote === id
+                      ? 'bg-rosa-500 text-white border-rosa-500'
+                      : 'bg-white border-rosa-100 hover:bg-rosa-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Bloque>
+        )}
+
         <Bloque titulo="Ajuste">
           <Radios
             value={ajuste}
@@ -195,11 +251,14 @@ export default function NuevoProyecto() {
         <Bloque titulo="Largo">
           <input
             type="range"
-            min={30}
-            max={110}
+            min={RANGO_LARGO[prenda].min}
+            max={RANGO_LARGO[prenda].max}
             step={1}
             value={largo}
-            onChange={(e) => setLargo(parseFloat(e.target.value))}
+            onChange={(e) => {
+              setLargo(parseFloat(e.target.value));
+              setLargoEditado(true);
+            }}
             className="w-full"
           />
           <div className="text-xs text-tinta/60">{largo} cm</div>
