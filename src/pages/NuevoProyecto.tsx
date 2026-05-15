@@ -5,6 +5,7 @@ import { listarPerfiles } from '../lib/storage/perfiles';
 import { guardarPatron } from '../lib/storage/patrones';
 import { generarPollera } from '../lib/patrones/prendas/pollera';
 import { generarTop } from '../lib/patrones/prendas/top';
+import { generarBlusa } from '../lib/patrones/prendas/blusa';
 import { disposicionPlana } from '../lib/pdf/tiler';
 import type {
   Ajuste,
@@ -20,8 +21,17 @@ import type {
 const PRENDAS_V1: { id: Prenda; label: string; emoji: string; disponible: boolean }[] = [
   { id: 'pollera', label: 'Pollera', emoji: '🩱', disponible: true },
   { id: 'top', label: 'Top', emoji: '👚', disponible: true },
-  { id: 'blusa', label: 'Blusa', emoji: '👕', disponible: false },
+  { id: 'blusa', label: 'Blusa', emoji: '👕', disponible: true },
   { id: 'vestido', label: 'Vestido', emoji: '👗', disponible: false },
+];
+
+const MANGAS: { id: Manga; label: string }[] = [
+  { id: 'sin', label: 'Sin manga' },
+  { id: 'corta', label: 'Corta' },
+  { id: 'tres_cuartos', label: '3/4' },
+  { id: 'larga', label: 'Larga' },
+  { id: 'kimona', label: 'Kimona' },
+  { id: 'raglan', label: 'Raglán' },
 ];
 
 const ESCOTES: { id: Escote; label: string }[] = [
@@ -47,6 +57,7 @@ export default function NuevoProyecto() {
   const [perfilId, setPerfilId] = useState<string>('');
   const [prenda, setPrenda] = useState<Prenda>('pollera');
   const [escote, setEscote] = useState<Escote>('redondo');
+  const [manga, setManga] = useState<Manga>('sin');
   const [ajuste, setAjuste] = useState<Ajuste>('regular');
   const [tela, setTela] = useState<Tela>('plano_medio');
   const [cierre, setCierre] = useState<Cierre>('cremallera_invisible');
@@ -86,7 +97,7 @@ export default function NuevoProyecto() {
     const diseno: Diseno = {
       prenda,
       escote,
-      manga: 'sin' as Manga,
+      manga,
       largo,
       ajuste,
       tela,
@@ -95,8 +106,9 @@ export default function NuevoProyecto() {
       variantePollera: prenda === 'pollera' ? 'recta' : undefined,
     };
     if (prenda === 'top') return generarTop(perfil.medidas, diseno, perfil.nombre);
+    if (prenda === 'blusa') return generarBlusa(perfil.medidas, diseno, perfil.nombre);
     return generarPollera(perfil.medidas, diseno, perfil.nombre);
-  }, [perfil, prenda, escote, ajuste, tela, cierre, largo, margen]);
+  }, [perfil, prenda, escote, manga, ajuste, tela, cierre, largo, margen]);
 
   const [exportando, setExportando] = useState(false);
 
@@ -214,6 +226,32 @@ export default function NuevoProyecto() {
                 </button>
               ))}
             </div>
+          </Bloque>
+        )}
+
+        {prenda !== 'pollera' && (
+          <Bloque titulo="Manga">
+            <div className="grid grid-cols-3 gap-1">
+              {MANGAS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setManga(id)}
+                  className={`py-2 text-xs rounded-lg border transition ${
+                    manga === id
+                      ? 'bg-rosa-500 text-white border-rosa-500'
+                      : 'bg-white border-rosa-100 hover:bg-rosa-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {(manga === 'kimona' || manga === 'raglan') && (
+              <p className="text-[10px] text-tinta/50 mt-1">
+                Vista previa simplificada. La modificación del corpiño para {manga} se incluye en próxima versión.
+              </p>
+            )}
           </Bloque>
         )}
 
