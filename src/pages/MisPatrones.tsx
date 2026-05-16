@@ -16,6 +16,7 @@ const NOMBRE_PRENDA: Record<Patron['diseno']['prenda'], string> = {
   top: 'Top',
   blusa: 'Blusa',
   vestido: 'Vestido',
+  pantalon: 'Pantalón',
 };
 
 export default function MisPatrones() {

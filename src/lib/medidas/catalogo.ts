@@ -325,6 +325,61 @@ export const CATALOGO_MEDIDAS: PasoMedida[] = [
     defecto: 100,
     requerida: false,
   },
+
+  // === Medidas para pantalón (opcionales, se piden por las dudas) ===
+  {
+    id: 'tiro',
+    label: 'Tiro',
+    instruccion:
+      'Sentate en una silla plana. Mediná desde la cintura hasta el borde de la silla, vertical. Ese es el tiro.',
+    categoria: 'altura',
+    vista: 'lateral',
+    highlight: 'tiro',
+    min: 18,
+    max: 38,
+    defecto: 27,
+    requerida: false,
+    tip: 'Es lo que determina cuán "alto" o "bajo" queda el pantalón en la cadera.',
+  },
+  {
+    id: 'rodilla',
+    label: 'Contorno de rodilla',
+    instruccion:
+      'Con la pierna ligeramente doblada, pasá la cinta alrededor de la rótula y la parte de atrás de la rodilla.',
+    categoria: 'contorno',
+    vista: 'lateral',
+    highlight: 'rodilla',
+    min: 28,
+    max: 50,
+    defecto: 36,
+    requerida: false,
+  },
+  {
+    id: 'bota',
+    label: 'Bota / contorno de tobillo',
+    instruccion:
+      'Pasá la cinta alrededor del tobillo, sobre el hueso, donde quieras que termine el pantalón.',
+    categoria: 'contorno',
+    vista: 'lateral',
+    highlight: 'bota',
+    min: 18,
+    max: 40,
+    defecto: 24,
+    requerida: false,
+  },
+  {
+    id: 'largoPantalon',
+    label: 'Largo de pantalón',
+    instruccion:
+      'Cinta vertical desde la cintura por el costado hasta el largo deseado (típicamente el tobillo).',
+    categoria: 'largo_prenda',
+    vista: 'lateral',
+    highlight: 'largo_pantalon',
+    min: 80,
+    max: 120,
+    defecto: 100,
+    requerida: false,
+  },
 ];
 
 export const TOTAL_MEDIDAS = CATALOGO_MEDIDAS.length;

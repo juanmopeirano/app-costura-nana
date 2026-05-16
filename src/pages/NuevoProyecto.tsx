@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PatronPreview from '../components/PatronPreview';
 import FotoUpload from '../components/FotoUpload';
+import DialogoExportar from '../components/DialogoExportar';
 import { listarPerfiles } from '../lib/storage/perfiles';
 import { guardarPatron, obtenerPatron } from '../lib/storage/patrones';
 import { generarPollera } from '../lib/patrones/prendas/pollera';
 import { generarTop } from '../lib/patrones/prendas/top';
 import { generarBlusa } from '../lib/patrones/prendas/blusa';
 import { generarVestido } from '../lib/patrones/prendas/vestido';
+import { generarPantalon } from '../lib/patrones/prendas/pantalon';
+import IconPants from '../components/IconPants';
 import { disposicionPlana } from '../lib/pdf/tiler';
 import type {
   Ajuste,
@@ -44,6 +47,7 @@ const PRENDAS_V1: PrendaCfg[] = [
   { id: 'top', label: 'Top', icon: <IconShirt size={22} />, disponible: true },
   { id: 'blusa', label: 'Blusa', icon: <IconShirt size={22} />, disponible: true },
   { id: 'vestido', label: 'Vestido', icon: <IconDress size={22} />, disponible: true },
+  { id: 'pantalon', label: 'Pantalón', icon: <IconPants size={22} />, disponible: true },
 ];
 
 const ESCOTES: { id: Escote; label: string }[] = [
@@ -84,6 +88,7 @@ const RANGO_LARGO: Record<Prenda, { min: number; max: number; defecto: number }>
   top: { min: 35, max: 80, defecto: 55 },
   blusa: { min: 50, max: 90, defecto: 62 },
   vestido: { min: 70, max: 160, defecto: 100 },
+  pantalon: { min: 70, max: 115, defecto: 100 },
 };
 
 export default function NuevoProyecto() {
@@ -107,6 +112,9 @@ export default function NuevoProyecto() {
   const [foto, setFoto] = useState<string | undefined>(undefined);
   const [exportando, setExportando] = useState(false);
   const [errorExport, setErrorExport] = useState<string | null>(null);
+  const [especificaciones, setEspecificaciones] = useState<string>('');
+  const [tituloPatron, setTituloPatron] = useState<string>('');
+  const [dialogoAbierto, setDialogoAbierto] = useState(false);
 
   useEffect(() => {
     void listarPerfiles().then((p) => {
@@ -132,6 +140,8 @@ export default function NuevoProyecto() {
       setVariantePollera(p.diseno.variantePollera ?? 'recta');
       setVarianteVestido(p.diseno.varianteVestido ?? 'simple');
       setFoto(p.diseno.fotoReferencia);
+      setEspecificaciones(p.diseno.especificaciones ?? '');
+      setTituloPatron(p.diseno.tituloPatron ?? '');
       setLargoEditado(true);
       void listarPerfiles().then((perfs) => {
         const enc = perfs.find((x) => x.nombre === p.nombrePerfil);
@@ -156,6 +166,7 @@ export default function NuevoProyecto() {
     if (prenda === 'pollera') predeterminado = m.largoFalda || r.defecto;
     else if (prenda === 'top') predeterminado = m.talleAtras + 10;
     else if (prenda === 'blusa') predeterminado = m.largoBlusa || r.defecto;
+    else if (prenda === 'pantalon') predeterminado = m.largoPantalon || r.defecto;
     else predeterminado = m.largoVestido || r.defecto;
     setLargo(Math.max(r.min, Math.min(r.max, predeterminado)));
   }, [perfil, prenda, largoEditado]);
@@ -174,14 +185,17 @@ export default function NuevoProyecto() {
       variantePollera: prenda === 'pollera' || prenda === 'vestido' ? variantePollera : undefined,
       varianteVestido: prenda === 'vestido' ? varianteVestido : undefined,
       fotoReferencia: foto,
+      especificaciones: especificaciones || undefined,
+      tituloPatron: tituloPatron || undefined,
     };
     if (prenda === 'top') return generarTop(perfil.medidas, diseno, perfil.nombre);
     if (prenda === 'blusa') return generarBlusa(perfil.medidas, diseno, perfil.nombre);
     if (prenda === 'vestido') return generarVestido(perfil.medidas, diseno, perfil.nombre);
+    if (prenda === 'pantalon') return generarPantalon(perfil.medidas, diseno, perfil.nombre);
     return generarPollera(perfil.medidas, diseno, perfil.nombre);
   }, [
     perfil, prenda, escote, manga, ajuste, tela, cierre, largo, margen,
-    variantePollera, varianteVestido, foto,
+    variantePollera, varianteVestido, foto, especificaciones, tituloPatron,
   ]);
 
   const disposicion = useMemo(
@@ -195,19 +209,36 @@ export default function NuevoProyecto() {
     navigate('/patrones');
   }
 
-  async function exportarPdf() {
+  async function exportarPdf(opts: { titulo: string; cierre: Cierre; especificaciones: string }) {
     if (!patron) return;
     setExportando(true);
     setErrorExport(null);
     try {
+      // Aplicamos las opciones del diálogo al patrón antes de exportar
+      const patronFinal = {
+        ...patron,
+        diseno: {
+          ...patron.diseno,
+          cierre: opts.cierre,
+          especificaciones: opts.especificaciones || undefined,
+          tituloPatron: opts.titulo || undefined,
+        },
+      };
+      // Y persistimos en el estado para que se vea en el preview
+      setCierre(opts.cierre);
+      setEspecificaciones(opts.especificaciones);
+      setTituloPatron(opts.titulo);
+
       const { exportarPatronPDF, descargarPDF } = await import('../lib/pdf/exportar');
-      const bytes = await exportarPatronPDF(patron);
+      const bytes = await exportarPatronPDF(patronFinal);
       const fecha = new Date().toISOString().slice(0, 10);
-      const nombre = `patron-${patron.diseno.prenda}-${patron.nombrePerfil}-${fecha}.pdf`
-        .replace(/\s+/g, '_')
+      const baseNombre = opts.titulo || `${patron.diseno.prenda}-${patron.nombrePerfil}`;
+      const nombre = `${baseNombre}-${fecha}.pdf`
+        .replace(/[^\w\-]+/g, '_')
         .toLowerCase();
       descargarPDF(bytes, nombre);
-      await guardarPatron(patron);
+      await guardarPatron(patronFinal);
+      setDialogoAbierto(false);
     } catch (e) {
       console.error('PDF export error:', e);
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
@@ -216,6 +247,12 @@ export default function NuevoProyecto() {
       setExportando(false);
     }
   }
+
+  const tituloSugerido =
+    tituloPatron ||
+    (perfil
+      ? `${PRENDAS_V1.find((p) => p.id === prenda)?.label ?? 'Patrón'} de ${perfil.nombre}`
+      : '');
 
   if (perfiles === null) {
     return <div className="card text-tinta-600 text-sm">Cargando…</div>;
@@ -308,13 +345,13 @@ export default function NuevoProyecto() {
           </Seccion>
         )}
 
-        {prenda !== 'pollera' && (
+        {prenda !== 'pollera' && prenda !== 'pantalon' && (
           <Seccion titulo="Escote">
             <Pills value={escote} onChange={setEscote} options={ESCOTES.map((e) => ({ ...e, disponible: true }))} />
           </Seccion>
         )}
 
-        {prenda !== 'pollera' && (
+        {prenda !== 'pollera' && prenda !== 'pantalon' && (
           <Seccion titulo="Manga">
             <Pills value={manga} onChange={setManga} options={MANGAS.map((m) => ({ ...m, disponible: true }))} />
             {(manga === 'kimona' || manga === 'raglan') && (
@@ -349,20 +386,6 @@ export default function NuevoProyecto() {
           </div>
         </Seccion>
 
-        <Seccion titulo="Cierre">
-          <select
-            className="input !py-2 text-sm"
-            value={cierre}
-            onChange={(e) => setCierre(e.target.value as Cierre)}
-          >
-            <option value="cremallera_invisible">Cremallera invisible</option>
-            <option value="cremallera_visible">Cremallera visible</option>
-            <option value="botones">Botones</option>
-            <option value="elastico">Elástico</option>
-            <option value="ninguno">Sin cierre</option>
-          </select>
-        </Seccion>
-
         <Seccion titulo={`Largo · ${largo} cm`}>
           <Slider
             min={RANGO_LARGO[prenda].min}
@@ -393,16 +416,10 @@ export default function NuevoProyecto() {
           <button
             type="button"
             className="btn-primary"
-            onClick={exportarPdf}
-            disabled={!patron || exportando}
+            onClick={() => setDialogoAbierto(true)}
+            disabled={!patron}
           >
-            {exportando ? (
-              'Generando…'
-            ) : (
-              <>
-                <IconDownload size={16} /> Descargar PDF A4
-              </>
-            )}
+            <IconDownload size={16} /> Descargar PDF A4
           </button>
           <button type="button" className="btn-outline" onClick={guardar} disabled={!patron}>
             <IconCheck size={14} /> Guardar sin exportar
@@ -415,6 +432,15 @@ export default function NuevoProyecto() {
             ({disposicion.cols} × {disposicion.rows}) ·{' '}
             patrón {disposicion.bbox.w.toFixed(1)} × {disposicion.bbox.h.toFixed(1)} cm
           </p>
+        )}
+
+        {especificaciones && (
+          <div className="card !p-3 text-xs space-y-1">
+            <p className="eyebrow">Especificaciones</p>
+            <pre className="whitespace-pre-wrap text-tinta-700 font-sans text-xs">
+              {especificaciones}
+            </pre>
+          </div>
         )}
 
         {errorExport && (
@@ -431,6 +457,16 @@ export default function NuevoProyecto() {
           </div>
         )}
       </aside>
+
+      <DialogoExportar
+        abierto={dialogoAbierto}
+        titulo={tituloSugerido}
+        cierre={cierre}
+        especificaciones={especificaciones}
+        generando={exportando}
+        onCerrar={() => setDialogoAbierto(false)}
+        onConfirmar={exportarPdf}
+      />
 
       <section className="space-y-3 lg:sticky lg:top-20 lg:self-start">
         <div className="flex items-center justify-between">

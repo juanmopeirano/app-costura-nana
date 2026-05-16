@@ -3,39 +3,70 @@ import { bbox, bezierCuadratica, pathDesdePuntos } from './geometria';
 import { desahogos } from './holgura';
 import { formaEscote } from './transforms/escote';
 
-// Construye los cuartos del corpiño femenino siguiendo el método del
-// Manual SENA (pp.21-25). Sistema de coordenadas:
+// Cuartos del corpiño femenino siguiendo el método SENA (pp.21-25) con
+// correcciones para asegurar una sisa cómoda y curvas femeninas correctas.
+//
+// Sistema de coordenadas:
 //   - x = 0 en el lomo (centro espalda / delantero)
 //   - x crece hacia el costado
-//   - y = 0 en la línea horizontal del hombro
+//   - y = 0 en la séptima cervical / base del cuello frontal
 //   - y crece hacia abajo
-// Cada función devuelve un panel para cortarse sobre doblez.
 
 export type LargoCorpino = 'top' | 'blusa' | 'vestido_cintura';
 
 export type OpcionesCorpino = {
   largo: LargoCorpino;
-  /** Largo total deseado (cm) desde 7a cervical. Para top y blusa. */
   largoPrenda?: number;
 };
 
+// Profundidad de sisa (vertical desde el hombro hasta el punto medio del costado
+// a la altura del busto). Combinamos las dos fórmulas clásicas y tomamos la
+// más generosa para asegurar espacio para el brazo.
 function profundidadSisa(m: Medidas): number {
-  return m.busto / 10 + 11;
+  const f1 = m.talleAtras / 2 + 1; // método sastre
+  const f2 = m.busto / 10 + 11; // método continental
+  return Math.max(f1, f2);
 }
 
+// Caída del hombro: cuánto baja el hombro respecto a la línea horizontal de
+// la séptima cervical. Espalda algo menos que el delantero.
+const CAIDA_HOMBRO_ESPALDA = 4;
+const CAIDA_HOMBRO_DELANTERO = 4.5;
+
+// Curva de sisa con dos controles (Bezier cúbico aproximado con dos
+// cuadráticos): más profunda (más cóncava hacia adentro) para que haya espacio
+// real para el brazo.
 function curvaSisa(superior: Punto, costado: Punto, atras: boolean): Punto[] {
-  const ctrl: Punto = atras
-    ? { x: costado.x - 1.5, y: superior.y + (costado.y - superior.y) * 0.55 }
-    : { x: costado.x - 2.5, y: superior.y + (costado.y - superior.y) * 0.6 };
-  const out: Punto[] = [];
-  const N = 10;
+  const dx = costado.x - superior.x;
+  const dy = costado.y - superior.y;
+  // Control 1: cerca del hombro, baja un poco y se mueve hacia el costado
+  const c1: Punto = atras
+    ? { x: superior.x + dx * 0.55, y: superior.y + dy * 0.15 }
+    : { x: superior.x + dx * 0.6, y: superior.y + dy * 0.18 };
+  // Punto medio de la curva: el "valle" de la sisa (cóncavo)
+  const medio: Punto = atras
+    ? { x: superior.x + dx * 0.78, y: superior.y + dy * 0.55 }
+    : { x: superior.x + dx * 0.7, y: superior.y + dy * 0.55 };
+  // Control 2: justo encima del costado, baja casi recto
+  const c2: Punto = { x: costado.x - 0.5, y: superior.y + dy * 0.85 };
+
+  const N = 8;
+  const tramo1: Punto[] = [];
   for (let i = 1; i < N; i++) {
-    out.push(bezierCuadratica(superior, ctrl, costado, i / N));
+    tramo1.push(bezierCuadratica(superior, c1, medio, i / N));
   }
-  return out;
+  const tramo2: Punto[] = [];
+  for (let i = 1; i < N; i++) {
+    tramo2.push(bezierCuadratica(medio, c2, costado, i / N));
+  }
+  return [...tramo1, medio, ...tramo2];
 }
 
-function anchoPinzaCintura(m: Medidas, holguraCintura: number, espalda: boolean): number {
+function anchoPinzaCintura(
+  m: Medidas,
+  holguraCintura: number,
+  espalda: boolean,
+): number {
   const bP = m.busto / 4;
   const cP = m.cintura / 4 + holguraCintura / 4;
   const diff = Math.max(0, bP - cP);
@@ -76,15 +107,16 @@ export function corpinoEspalda(m: Medidas, d: Diseno, opts: OpcionesCorpino): Pi
   const largoPanel = largoTotal(m, opts, true);
   const talleAtras = m.talleAtras;
 
-  // Escote (forma según selección)
   const esc = formaEscote(m, 'espalda', d.escote);
 
-  // Hombro: del externo del escote a (anchoEspalda/2, caida).
-  // Si el escote barco lleva el ancho más allá de anchoEspalda/2, lo recortamos.
+  // Hombro: usa ancho_espalda como guía (mitad). Para escote barco, podemos
+  // ir más allá pero acotado al máximo razonable.
   const hombroX = Math.max(esc.externo.x + 2, m.anchoEspalda / 2);
-  const hombroExt: Punto = { x: hombroX, y: 2 };
+  const hombroExt: Punto = { x: hombroX, y: CAIDA_HOMBRO_ESPALDA };
 
+  // El punto de sisa en el costado está a la altura de la profundidad de sisa.
   const costadoSisa: Punto = { x: bP, y: profSisa };
+
   const anchoPinza = anchoPinzaCintura(m, desah.cintura, true);
   const costadoCinturaX = cP + anchoPinza;
   const costadoCintura: Punto = { x: costadoCinturaX, y: talleAtras };
@@ -102,15 +134,14 @@ export function corpinoEspalda(m: Medidas, d: Diseno, opts: OpcionesCorpino): Pi
 
   const curvaArm = curvaSisa(hombroExt, costadoSisa, true);
 
-  // Pinza de cintura centrada en el cuarto
+  // Pinza de cintura espalda: centrada entre el centro y el costado
   const cinturaCentroX = costadoCinturaX / 2;
   const pinzaA: Punto = { x: cinturaCentroX + anchoPinza / 2, y: talleAtras };
   const pinzaB: Punto = { x: cinturaCentroX - anchoPinza / 2, y: talleAtras };
   const pinzaPunta: Punto = { x: cinturaCentroX, y: talleAtras - 13 };
 
-  // Construir contorno CW desde el centro arriba (escote profundo)
   const contorno: Punto[] = [];
-  contorno.push(esc.profundo); // centro arriba
+  contorno.push(esc.profundo);
   contorno.push(...[...esc.puntosIntermedios].reverse());
   contorno.push(esc.externo);
   contorno.push(hombroExt);
@@ -165,8 +196,9 @@ export function corpinoDelantero(m: Medidas, d: Diseno, opts: OpcionesCorpino): 
 
   const esc = formaEscote(m, 'delantero', d.escote);
 
+  // En el delantero usamos ancho_pecho como guía
   const hombroX = Math.max(esc.externo.x + 2, m.anchoPecho / 2);
-  const hombroExt: Punto = { x: hombroX, y: 2.5 };
+  const hombroExt: Punto = { x: hombroX, y: CAIDA_HOMBRO_DELANTERO };
 
   const costadoSisa: Punto = { x: bP, y: profSisa };
   const anchoPinza = anchoPinzaCintura(m, desah.cintura, false);
@@ -181,18 +213,29 @@ export function corpinoDelantero(m: Medidas, d: Diseno, opts: OpcionesCorpino): 
 
   const curvaArm = curvaSisa(hombroExt, costadoSisa, false);
 
-  // Pinza de cintura alineada con punta de busto
+  // Pinza de cintura delantero alineada con el ápice del busto
   const cinturaCentroX = Math.min(m.separacionBusto / 2, costadoCinturaX - 2);
   const pinzaA: Punto = { x: cinturaCentroX + anchoPinza / 2, y: talleFrente };
   const pinzaB: Punto = { x: cinturaCentroX - anchoPinza / 2, y: talleFrente };
   const pinzaPunta: Punto = { x: cinturaCentroX, y: m.alturaBusto + 2 };
 
-  // Pinza de busto desde el costado
-  const pinzaBustoArribaY = profSisa + 1;
-  const pinzaBustoBaseY = profSisa + Math.max(3, Math.min(5, m.busto / 25));
-  const pinzaBA: Punto = { x: bP, y: pinzaBustoBaseY };
-  const pinzaBB: Punto = { x: bP, y: pinzaBustoArribaY };
-  const pinzaBPunta: Punto = { x: Math.max(0, m.separacionBusto / 2 + 1), y: m.alturaBusto };
+  // Pinza de busto: desde el costado apuntando al ápice del busto.
+  // Posicionada a 2-3cm bajo la sisa para no interferir con la curva.
+  const pinzaBustoCentroY = profSisa + 4;
+  const pinzaBustoAncho = Math.max(2, Math.min(4, (m.busto - m.cintura) / 12));
+  const pinzaBA: Punto = { x: bP, y: pinzaBustoCentroY - pinzaBustoAncho / 2 };
+  const pinzaBB: Punto = { x: bP, y: pinzaBustoCentroY + pinzaBustoAncho / 2 };
+  // La punta apunta hacia el ápice del busto pero se detiene a 2cm antes
+  const apiceX = m.separacionBusto / 2;
+  const apiceY = m.alturaBusto;
+  const dx = bP - apiceX;
+  const dy = pinzaBustoCentroY - apiceY;
+  const len = Math.hypot(dx, dy);
+  const recorte = 2;
+  const pinzaBPunta: Punto = {
+    x: apiceX + (dx / len) * recorte,
+    y: apiceY + (dy / len) * recorte,
+  };
 
   const contorno: Punto[] = [];
   contorno.push(esc.profundo);

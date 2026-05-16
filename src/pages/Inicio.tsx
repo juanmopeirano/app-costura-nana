@@ -211,10 +211,11 @@ function PrendasDisponibles() {
     { e: '👕', n: 'Blusa', d: 'Manga corta, 3/4 o larga' },
     { e: '🩱', n: 'Pollera', d: 'Recta, A-line, sirena o con vuelo' },
     { e: '👗', n: 'Vestido', d: 'Corpiño + falda en cuatro piezas' },
+    { e: '👖', n: 'Pantalón', d: 'Clásico con tiro, rodilla y bota' },
   ];
   return (
     <section>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {prendas.map((p) => (
           <div
             key={p.n}

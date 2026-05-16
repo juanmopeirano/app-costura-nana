@@ -11,7 +11,11 @@ type Props = {
 };
 
 export default function FotoUpload({ foto, onCambio }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Input "galería": sin atributo `capture`. iOS/Android ofrecen el picker que
+  // permite elegir de la galería (y también ofrecen cámara como opción).
+  const inputGaleria = useRef<HTMLInputElement>(null);
+  // Input "cámara": con `capture="environment"` para tomar foto directo.
+  const inputCamara = useRef<HTMLInputElement>(null);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,24 +51,45 @@ export default function FotoUpload({ foto, onCambio }: Props) {
           </button>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="w-full p-6 border-2 border-dashed border-baya-200 rounded-xl text-tinta-600 text-sm hover:bg-baya-50 hover:border-baya-400 transition flex flex-col items-center gap-2"
-          disabled={procesando}
-        >
-          {procesando ? (
-            'Procesando…'
-          ) : (
-            <>
-              <IconCamera size={28} className="text-baya-500" />
-              <span>Subir foto del diseño</span>
-            </>
-          )}
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => inputGaleria.current?.click()}
+            className="p-3 border-2 border-dashed border-baya-200 rounded-xl text-tinta-600 text-xs hover:bg-baya-50 hover:border-baya-400 transition flex flex-col items-center gap-1.5"
+            disabled={procesando}
+          >
+            <span className="text-baya-500 text-lg">🖼️</span>
+            <span>Desde galería</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => inputCamara.current?.click()}
+            className="p-3 border-2 border-dashed border-baya-200 rounded-xl text-tinta-600 text-xs hover:bg-baya-50 hover:border-baya-400 transition flex flex-col items-center gap-1.5"
+            disabled={procesando}
+          >
+            <IconCamera size={20} className="text-baya-500" />
+            <span>Sacar foto</span>
+          </button>
+        </div>
       )}
+      {procesando && (
+        <p className="text-xs text-tinta-500">Procesando imagen…</p>
+      )}
+      {/* Input galería: sin capture para que ofrezca la galería */}
       <input
-        ref={inputRef}
+        ref={inputGaleria}
+        type="file"
+        accept={ACEPTADOS}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void manejarArchivo(f);
+          e.target.value = '';
+        }}
+      />
+      {/* Input cámara: con capture para tomar foto */}
+      <input
+        ref={inputCamara}
         type="file"
         accept={ACEPTADOS}
         capture="environment"
@@ -77,8 +102,8 @@ export default function FotoUpload({ foto, onCambio }: Props) {
       />
       {error && <p className="text-xs text-baya-700">{error}</p>}
       <p className="text-[10px] text-tinta-500 leading-relaxed">
-        Sirve sólo como referencia visual. La foto queda en este dispositivo
-        (no se sube a internet).
+        Sirve como referencia visual y se incluye en la portada del PDF. Queda
+        en este dispositivo (no se sube a internet).
       </p>
     </div>
   );
