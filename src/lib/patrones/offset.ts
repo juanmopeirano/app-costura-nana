@@ -1,14 +1,30 @@
 import type { Punto } from './tipos';
 
+// Área firmada (shoelace) en sistema y-abajo (SVG/pantalla): negativa si el
+// polígono está en sentido horario, positiva si es antihorario.
+export function areaFirmada(puntos: Punto[]): number {
+  let suma = 0;
+  for (let i = 0; i < puntos.length; i++) {
+    const a = puntos[i];
+    const b = puntos[(i + 1) % puntos.length];
+    suma += (b.x - a.x) * (b.y + a.y);
+  }
+  return suma / 2;
+}
+
 // Desplaza paralelamente una polilínea cerrada por `distancia` cm hacia "afuera".
-// Asume orientación horaria (CW) en sistema de coordenadas donde y crece
-// hacia abajo (formato SVG/pantalla). El offset usa bisector en cada vértice.
+// El offset usa bisector en cada vértice.
+//
+// La normal del bisector apunta hacia afuera sólo si el polígono está en sentido
+// horario, así que invertimos el signo cuando viene antihorario. Sin esto la
+// línea de corte de las piezas CCW (la falda) cae DENTRO de la de costura.
 //
 // Para curvas muy cerradas o ángulos casi 180°, el bisector se clampa para
 // evitar picos. Suficientemente robusto para los patrones simples del manual SENA.
 export function offsetPolilineaCerrada(puntos: Punto[], distancia: number): Punto[] {
   if (puntos.length < 3 || distancia === 0) return [...puntos];
   const n = puntos.length;
+  const hacia = areaFirmada(puntos) > 0 ? -distancia : distancia;
   const resultado: Punto[] = new Array(n);
   for (let i = 0; i < n; i++) {
     const prev = puntos[(i - 1 + n) % n];
@@ -41,7 +57,7 @@ export function offsetPolilineaCerrada(puntos: Punto[], distancia: number): Punt
       bx = (bx / lenB) * escala;
       by = (by / lenB) * escala;
     }
-    resultado[i] = { x: cur.x + bx * distancia, y: cur.y + by * distancia };
+    resultado[i] = { x: cur.x + bx * hacia, y: cur.y + by * hacia };
   }
   return resultado;
 }

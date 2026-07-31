@@ -11,7 +11,13 @@ export default function MisMedidas() {
     setPerfiles(await listarPerfiles());
   }
   useEffect(() => {
-    void refrescar();
+    let vivo = true;
+    void listarPerfiles().then((p) => {
+      if (vivo) setPerfiles(p);
+    });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   async function borrar(id: string, nombre: string) {

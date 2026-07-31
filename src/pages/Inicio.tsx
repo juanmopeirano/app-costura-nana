@@ -1,6 +1,16 @@
 import { Link } from 'react-router-dom';
-import { IconArrowRight, IconCamera, IconDownload, IconRuler } from '../components/Icon';
+import {
+  IconArrowRight,
+  IconCamera,
+  IconDownload,
+  IconDress,
+  IconRuler,
+  IconShirt,
+  IconSkirt,
+} from '../components/Icon';
+import IconPants from '../components/IconPants';
 import { CarreteOrn, PuntadasDivider } from '../components/Ornamento';
+import { TOTAL_MEDIDAS } from '../lib/medidas/catalogo';
 
 export default function Inicio() {
   return (
@@ -169,15 +179,14 @@ function ComoFunciona() {
       icon: <IconRuler size={22} />,
       n: '01',
       titulo: 'Medite con calma',
-      texto:
-        'Te llevamos por 23 medidas corporales con ilustración y descripción para cada una. Las guardamos en este dispositivo así no las repetís.',
+      texto: `Te llevamos por ${TOTAL_MEDIDAS} medidas corporales con ilustración y descripción para cada una. Las guardamos en este dispositivo así no las repetís.`,
     },
     {
       icon: <IconCamera size={22} />,
       n: '02',
       titulo: 'Elegí tu prenda',
       texto:
-        'Top, blusa, pollera o vestido. Subí una foto de referencia y elegí escote, manga, largo, ajuste, tela y cierre.',
+        'Top, blusa, pollera, vestido o pantalón. Subí una foto de referencia y elegí escote, manga, largo, ajuste, tela y cierre.',
     },
     {
       icon: <IconDownload size={22} />,
@@ -207,11 +216,11 @@ function ComoFunciona() {
 
 function PrendasDisponibles() {
   const prendas = [
-    { e: '👚', n: 'Top', d: 'Cropped con escote y manga a elección' },
-    { e: '👕', n: 'Blusa', d: 'Manga corta, 3/4 o larga' },
-    { e: '🩱', n: 'Pollera', d: 'Recta, A-line, sirena o con vuelo' },
-    { e: '👗', n: 'Vestido', d: 'Corpiño + falda en cuatro piezas' },
-    { e: '👖', n: 'Pantalón', d: 'Clásico con tiro, rodilla y bota' },
+    { icon: <IconShirt size={30} />, n: 'Top', d: 'Cropped con escote y manga a elección' },
+    { icon: <IconShirt size={30} />, n: 'Blusa', d: 'Manga corta, 3/4 o larga' },
+    { icon: <IconSkirt size={30} />, n: 'Pollera', d: 'Recta, A-line, sirena o con vuelo' },
+    { icon: <IconDress size={30} />, n: 'Vestido', d: 'Corpiño + falda en cuatro piezas' },
+    { icon: <IconPants size={30} />, n: 'Pantalón', d: 'Clásico con tiro, rodilla y bota' },
   ];
   return (
     <section>
@@ -221,7 +230,7 @@ function PrendasDisponibles() {
             key={p.n}
             className="rounded-2xl bg-crema-50 border border-baya-100 p-4 text-center shadow-paper hover:-translate-y-0.5 hover:shadow-paper-lg transition"
           >
-            <div className="text-4xl mb-2">{p.e}</div>
+            <div className="text-baya-700 flex justify-center mb-2">{p.icon}</div>
             <div className="font-display text-lg text-tinta-900">{p.n}</div>
             <div className="text-xs text-tinta-600 mt-1">{p.d}</div>
           </div>

@@ -11,7 +11,7 @@ import { generarBlusa } from '../lib/patrones/prendas/blusa';
 import { generarVestido } from '../lib/patrones/prendas/vestido';
 import { generarPantalon } from '../lib/patrones/prendas/pantalon';
 import IconPants from '../components/IconPants';
-import { disposicionPlana } from '../lib/pdf/tiler';
+import { disposicionPlana, tilesConPiezas } from '../lib/pdf/tiler';
 import type {
   Ajuste,
   Cierre,
@@ -105,10 +105,10 @@ export default function NuevoProyecto() {
   const [ajuste, setAjuste] = useState<Ajuste>('regular');
   const [tela, setTela] = useState<Tela>('plano_medio');
   const [cierre, setCierre] = useState<Cierre>('cremallera_invisible');
-  const [largo, setLargo] = useState<number>(60);
+  // null = todavía no lo tocó la usuaria, se usa el largo sugerido por sus medidas
+  const [largoManual, setLargoManual] = useState<number | null>(null);
   const [margen, setMargen] = useState<number>(1);
   const [mostrarMargen, setMostrarMargen] = useState(true);
-  const [largoEditado, setLargoEditado] = useState(false);
   const [foto, setFoto] = useState<string | undefined>(undefined);
   const [exportando, setExportando] = useState(false);
   const [errorExport, setErrorExport] = useState<string | null>(null);
@@ -135,14 +135,13 @@ export default function NuevoProyecto() {
       setAjuste(p.diseno.ajuste);
       setTela(p.diseno.tela);
       setCierre(p.diseno.cierre);
-      setLargo(p.diseno.largo);
+      setLargoManual(p.diseno.largo);
       setMargen(p.diseno.margenCostura);
       setVariantePollera(p.diseno.variantePollera ?? 'recta');
       setVarianteVestido(p.diseno.varianteVestido ?? 'simple');
       setFoto(p.diseno.fotoReferencia);
       setEspecificaciones(p.diseno.especificaciones ?? '');
       setTituloPatron(p.diseno.tituloPatron ?? '');
-      setLargoEditado(true);
       void listarPerfiles().then((perfs) => {
         const enc = perfs.find((x) => x.nombre === p.nombrePerfil);
         if (enc) setPerfilId(enc.id);
@@ -158,18 +157,19 @@ export default function NuevoProyecto() {
     [perfiles, perfilId],
   );
 
-  useEffect(() => {
-    if (largoEditado || !perfil) return;
+  const largo = useMemo(() => {
     const r = RANGO_LARGO[prenda];
-    const m = perfil.medidas;
-    let predeterminado: number;
-    if (prenda === 'pollera') predeterminado = m.largoFalda || r.defecto;
-    else if (prenda === 'top') predeterminado = m.talleAtras + 10;
-    else if (prenda === 'blusa') predeterminado = m.largoBlusa || r.defecto;
-    else if (prenda === 'pantalon') predeterminado = m.largoPantalon || r.defecto;
-    else predeterminado = m.largoVestido || r.defecto;
-    setLargo(Math.max(r.min, Math.min(r.max, predeterminado)));
-  }, [perfil, prenda, largoEditado]);
+    const sugerido = () => {
+      if (!perfil) return r.defecto;
+      const m = perfil.medidas;
+      if (prenda === 'pollera') return m.largoFalda || r.defecto;
+      if (prenda === 'top') return m.talleAtras + 10;
+      if (prenda === 'blusa') return m.largoBlusa || r.defecto;
+      if (prenda === 'pantalon') return m.largoPantalon || r.defecto;
+      return m.largoVestido || r.defecto;
+    };
+    return Math.max(r.min, Math.min(r.max, largoManual ?? sugerido()));
+  }, [perfil, prenda, largoManual]);
 
   const patron = useMemo(() => {
     if (!perfil) return null;
@@ -198,10 +198,11 @@ export default function NuevoProyecto() {
     variantePollera, varianteVestido, foto, especificaciones, tituloPatron,
   ]);
 
-  const disposicion = useMemo(
-    () => (patron ? disposicionPlana(patron.piezas) : null),
-    [patron],
-  );
+  const disposicion = useMemo(() => {
+    if (!patron) return null;
+    const disp = disposicionPlana(patron.piezas);
+    return { ...disp, hojas: tilesConPiezas(disp, margen).length };
+  }, [patron, margen]);
 
   async function guardar() {
     if (!patron) return;
@@ -234,7 +235,7 @@ export default function NuevoProyecto() {
       const fecha = new Date().toISOString().slice(0, 10);
       const baseNombre = opts.titulo || `${patron.diseno.prenda}-${patron.nombrePerfil}`;
       const nombre = `${baseNombre}-${fecha}.pdf`
-        .replace(/[^\w\-]+/g, '_')
+        .replace(/[^\w-]+/g, '_')
         .toLowerCase();
       descargarPDF(bytes, nombre);
       await guardarPatron(patronFinal);
@@ -305,7 +306,7 @@ export default function NuevoProyecto() {
         </Seccion>
 
         <Seccion titulo="¿Qué prenda?">
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {PRENDAS_V1.map((p) => (
               <button
                 key={p.id}
@@ -392,10 +393,7 @@ export default function NuevoProyecto() {
             max={RANGO_LARGO[prenda].max}
             step={1}
             value={largo}
-            onChange={(v) => {
-              setLargo(v);
-              setLargoEditado(true);
-            }}
+            onChange={setLargoManual}
           />
         </Seccion>
 
@@ -428,8 +426,8 @@ export default function NuevoProyecto() {
 
         {disposicion && (
           <p className="text-xs text-tinta-500 leading-relaxed">
-            <span className="font-semibold text-tinta-700">{disposicion.tiles.length} hoja{disposicion.tiles.length === 1 ? '' : 's'} A4</span>{' '}
-            ({disposicion.cols} × {disposicion.rows}) ·{' '}
+            <span className="font-semibold text-tinta-700">{disposicion.hojas} hoja{disposicion.hojas === 1 ? '' : 's'} A4</span>{' '}
+            (grilla {disposicion.cols} × {disposicion.rows}) ·{' '}
             patrón {disposicion.bbox.w.toFixed(1)} × {disposicion.bbox.h.toFixed(1)} cm
           </p>
         )}
@@ -458,15 +456,16 @@ export default function NuevoProyecto() {
         )}
       </aside>
 
-      <DialogoExportar
-        abierto={dialogoAbierto}
-        titulo={tituloSugerido}
-        cierre={cierre}
-        especificaciones={especificaciones}
-        generando={exportando}
-        onCerrar={() => setDialogoAbierto(false)}
-        onConfirmar={exportarPdf}
-      />
+      {dialogoAbierto && (
+        <DialogoExportar
+          titulo={tituloSugerido}
+          cierre={cierre}
+          especificaciones={especificaciones}
+          generando={exportando}
+          onCerrar={() => setDialogoAbierto(false)}
+          onConfirmar={exportarPdf}
+        />
+      )}
 
       <section className="space-y-3 lg:sticky lg:top-20 lg:self-start">
         <div className="flex items-center justify-between">

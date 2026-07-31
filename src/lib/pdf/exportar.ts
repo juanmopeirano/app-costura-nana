@@ -2,7 +2,7 @@ import { PDFDocument, PDFImage, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import type { Patron, Pieza, Punto } from '../patrones/tipos';
 import { offsetPolilineaCerrada } from '../patrones/offset';
 import { cmAPuntos } from '../utils/unidades';
-import { A4, MARGEN, TILE, disposicionPlana, type Tile } from './tiler';
+import { A4, MARGEN, TILE, disposicionPlana, tilesConPiezas, type Tile } from './tiler';
 
 const COLOR_CONTORNO = rgb(0.12, 0.16, 0.22);
 const COLOR_SEAM = rgb(0.6, 0.6, 0.65);
@@ -48,6 +48,7 @@ const NOMBRE_CIERRE: Record<string, string> = {
 export async function exportarPatronPDF(patron: Patron): Promise<Uint8Array> {
   const ctx = await crearContexto();
   const disp = disposicionPlana(patron.piezas);
+  const tiles = tilesConPiezas(disp, patron.diseno.margenCostura);
 
   // Embebemos la foto al inicio si existe (puede tardar)
   let imgFoto: PDFImage | null = null;
@@ -65,13 +66,11 @@ export async function exportarPatronPDF(patron: Patron): Promise<Uint8Array> {
   }
 
   // === PAGINA 1: Portada ===
-  dibujarPortada(ctx, patron, disp, imgFoto);
+  dibujarPortada(ctx, patron, disp, tiles, imgFoto);
 
   // === PAGINAS 2..N+1: Tiles del patron ===
-  const total = disp.tiles.length;
-  for (let i = 0; i < total; i++) {
-    const tile = disp.tiles[i];
-    dibujarPaginaTile(ctx, patron, disp.piezas, tile, i + 1, total, disp.cols, disp.rows);
+  for (let i = 0; i < tiles.length; i++) {
+    dibujarPaginaTile(ctx, patron, disp.piezas, tiles[i], i + 1, tiles);
   }
 
   return ctx.pdf.save();
@@ -82,6 +81,7 @@ function dibujarPortada(
   ctx: Ctx,
   patron: Patron,
   disp: ReturnType<typeof disposicionPlana>,
+  tiles: Tile[],
   imgFoto: PDFImage | null,
 ) {
   const pagina = ctx.pdf.addPage([cmAPuntos(A4.ancho), cmAPuntos(A4.alto)]);
@@ -258,7 +258,7 @@ function dibujarPortada(
   if (patron.diseno.variantePollera) {
     datos.push(['Variante', aWinAnsi(patron.diseno.variantePollera.replace('_', ' '))]);
   }
-  datos.push(['Cantidad de hojas', `${disp.tiles.length} (${disp.cols} x ${disp.rows})`]);
+  datos.push(['Cantidad de hojas', `${tiles.length} (grilla ${disp.cols} x ${disp.rows})`]);
   datos.push([
     'Tamano del patron',
     `${disp.bbox.w.toFixed(1)} x ${disp.bbox.h.toFixed(1)} cm`,
@@ -299,6 +299,7 @@ function dibujarPortada(
     pagina,
     ctx,
     disp,
+    tiles,
     xEnsamble,
     yEnsamble,
     W - xEnsamble - M,
@@ -345,6 +346,7 @@ function dibujarEsquemaEnsamble(
   pagina: PDFPage,
   ctx: Ctx,
   disp: ReturnType<typeof disposicionPlana>,
+  tiles: Tile[],
   x: number,
   yTop: number,
   ancho: number,
@@ -369,7 +371,7 @@ function dibujarEsquemaEnsamble(
   const y0 = yTop - padTop;
 
   // Dibujamos cada tile como un rectangulo etiquetado
-  for (const t of disp.tiles) {
+  for (const t of tiles) {
     const tx = x0 + t.col * avanceW;
     const ty = y0 - t.row * avanceH - cellH;
     pagina.drawRectangle({
@@ -418,10 +420,12 @@ function dibujarPaginaTile(
   piezas: { pieza: Pieza; dx: number; dy: number }[],
   tile: Tile,
   numero: number,
-  total: number,
-  cols: number,
-  rows: number,
+  tiles: Tile[],
 ) {
+  const total = tiles.length;
+  const hayVecino = (col: number, row: number) =>
+    tiles.some((t) => t.col === col && t.row === row);
+
   const pagina = ctx.pdf.addPage([cmAPuntos(A4.ancho), cmAPuntos(A4.alto)]);
   const altoPt = pagina.getHeight();
   const origenX = cmAPuntos(MARGEN);
@@ -481,19 +485,17 @@ function dibujarPaginaTile(
     color: COLOR_TXT_SOFT,
   });
 
-  // Indicadores de unión con las hojas vecinas
-  if (tile.col < cols - 1) {
-    const x = origenX + cmAPuntos(TILE.ancho) - 4;
-    const y = origenY - cmAPuntos(TILE.alto / 2);
+  // Indicadores de unión con las hojas vecinas que realmente se imprimieron
+  if (hayVecino(tile.col + 1, tile.row)) {
     pagina.drawText(`-> ${ETIQUETA_COL[tile.col + 1]}${tile.row + 1}`, {
-      x: x - 40,
-      y,
+      x: origenX + cmAPuntos(TILE.ancho) - 44,
+      y: origenY - cmAPuntos(TILE.alto / 2),
       size: 8,
       font: ctx.fontBold,
       color: COLOR_BERRY,
     });
   }
-  if (tile.col > 0) {
+  if (hayVecino(tile.col - 1, tile.row)) {
     pagina.drawText(`${ETIQUETA_COL[tile.col - 1]}${tile.row + 1} <-`, {
       x: origenX + 4,
       y: origenY - cmAPuntos(TILE.alto / 2),
@@ -502,7 +504,7 @@ function dibujarPaginaTile(
       color: COLOR_BERRY,
     });
   }
-  if (tile.row < rows - 1) {
+  if (hayVecino(tile.col, tile.row + 1)) {
     pagina.drawText(`v ${etqCol}${tile.row + 2}`, {
       x: origenX + cmAPuntos(TILE.ancho / 2) - 10,
       y: origenY - cmAPuntos(TILE.alto) + 4,
@@ -511,7 +513,7 @@ function dibujarPaginaTile(
       color: COLOR_BERRY,
     });
   }
-  if (tile.row > 0) {
+  if (hayVecino(tile.col, tile.row - 1)) {
     pagina.drawText(`^ ${etqCol}${tile.row}`, {
       x: origenX + cmAPuntos(TILE.ancho / 2) - 10,
       y: origenY - 12,
@@ -528,7 +530,7 @@ function dibujarPaginaTile(
       y: p.y + pp.dy,
     }));
     const bb = bboxPuntos(contornoGlobal);
-    if (!bboxTocaTile(bb, tile)) continue;
+    if (!bboxTocaTile(bb, tile, patron.diseno.margenCostura)) continue;
 
     // Linea de costura (seam) interna
     dibujarPoligono(pagina, contornoGlobal, aPdf, {
@@ -632,8 +634,13 @@ function bboxPuntos(puntos: Punto[]) {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-function bboxTocaTile(b: { x: number; y: number; w: number; h: number }, t: Tile) {
-  return !(b.x + b.w < t.x0 || b.x > t.x1 || b.y + b.h < t.y0 || b.y > t.y1);
+function bboxTocaTile(b: { x: number; y: number; w: number; h: number }, t: Tile, margen = 0) {
+  return !(
+    b.x + b.w + margen < t.x0 ||
+    b.x - margen > t.x1 ||
+    b.y + b.h + margen < t.y0 ||
+    b.y - margen > t.y1
+  );
 }
 
 function puntoEnTile(p: Punto, t: Tile) {
@@ -662,25 +669,30 @@ function textWrap(s: string, max: number): string[] {
   return lines;
 }
 
-function aWinAnsi(texto: string): string {
-  return texto
-    .replace(/[áàä]/g, 'a')
-    .replace(/[éèë]/g, 'e')
-    .replace(/[íìï]/g, 'i')
-    .replace(/[óòö]/g, 'o')
-    .replace(/[úùü]/g, 'u')
-    .replace(/[ÁÀÄ]/g, 'A')
-    .replace(/[ÉÈË]/g, 'E')
-    .replace(/[ÍÌÏ]/g, 'I')
-    .replace(/[ÓÒÖ]/g, 'O')
-    .replace(/[ÚÙÜ]/g, 'U')
-    .replace(/[→↑]/g, '->')
-    .replace(/[←↓]/g, '<-')
-    .replace(/[·•]/g, '-')
-    .replace(/×/g, 'x')
-    .replace(/[…]/g, '...')
-    .replace(/[""„]/g, '"')
-    .replace(/['‛]/g, "'");
+// Las fuentes estándar de pdf-lib sólo codifican WinAnsi: cualquier otro
+// caracter hace fallar el guardado. El título y las especificaciones los escribe
+// la usuaria, así que después de transliterar lo previsible descartamos lo que
+// quede fuera del juego en vez de romper la exportación.
+const SUSTITUCIONES: [RegExp, string][] = [
+  [/[áàä]/g, 'a'], [/[éèë]/g, 'e'], [/[íìï]/g, 'i'], [/[óòö]/g, 'o'], [/[úùü]/g, 'u'],
+  [/[ÁÀÄ]/g, 'A'], [/[ÉÈË]/g, 'E'], [/[ÍÌÏ]/g, 'I'], [/[ÓÒÖ]/g, 'O'], [/[ÚÙÜ]/g, 'U'],
+  [/[→↑]/g, '->'], [/[←↓]/g, '<-'], [/[·•]/g, '-'], [/×/g, 'x'], [/…/g, '...'],
+  [/[“”„]/g, '"'], [/[‘’‛]/g, "'"], [/[–—]/g, '-'],
+];
+
+// Rangos de WinAnsi (cp1252): ASCII imprimible, los símbolos del bloque 0x80-0x9F
+// y Latin-1 de 0xA0 en adelante.
+const EN_WINANSI = (c: string) => {
+  const p = c.codePointAt(0)!;
+  if (p === 10) return true; // el salto de línea lo maneja textWrap
+  if (p >= 0x20 && p <= 0x7e) return true;
+  if (p >= 0xa0 && p <= 0xff) return true;
+  return '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ'.includes(c);
+};
+
+export function aWinAnsi(texto: string): string {
+  const transliterado = SUSTITUCIONES.reduce((s, [re, a]) => s.replace(re, a), texto);
+  return [...transliterado].filter(EN_WINANSI).join('');
 }
 
 export function descargarPDF(bytes: Uint8Array, nombre: string) {

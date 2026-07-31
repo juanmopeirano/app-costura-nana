@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { IconClose, IconDownload } from './Icon';
 import type { Cierre } from '../lib/patrones/tipos';
 
+// El padre monta este componente sólo mientras el diálogo está abierto, así que
+// el estado del formulario arranca de cero en cada apertura.
 type Props = {
-  abierto: boolean;
   titulo: string;
   cierre: Cierre;
   especificaciones: string;
@@ -29,7 +30,6 @@ const SUGERENCIAS = [
 ];
 
 export default function DialogoExportar({
-  abierto,
   titulo,
   cierre,
   especificaciones,
@@ -43,25 +43,17 @@ export default function DialogoExportar({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (abierto) {
-      setTit(titulo);
-      setCi(cierre);
-      setSpecs(especificaciones);
-      setTimeout(() => inputRef.current?.focus(), 80);
-    }
-  }, [abierto, titulo, cierre, especificaciones]);
+    inputRef.current?.focus();
+  }, []);
 
   // Cerrar con ESC
   useEffect(() => {
-    if (!abierto) return;
     const h = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !generando) onCerrar();
     };
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
-  }, [abierto, generando, onCerrar]);
-
-  if (!abierto) return null;
+  }, [generando, onCerrar]);
 
   return (
     <div

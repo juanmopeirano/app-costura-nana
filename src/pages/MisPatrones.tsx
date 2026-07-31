@@ -28,7 +28,13 @@ export default function MisPatrones() {
     setPatrones(await listarPatrones());
   }
   useEffect(() => {
-    void refrescar();
+    let vivo = true;
+    void listarPatrones().then((p) => {
+      if (vivo) setPatrones(p);
+    });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   async function borrar(id: string) {

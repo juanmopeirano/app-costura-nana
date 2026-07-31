@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { disposicionPlana, TILE, AVANCE } from '../src/lib/pdf/tiler';
+import { disposicionPlana, AVANCE } from '../src/lib/pdf/tiler';
 import { baseFaldaPanel } from '../src/lib/patrones/baseFalda';
 import { MEDIDAS_VACIAS, TALLAS_SENA } from '../src/lib/patrones/tipos';
 import type { Diseno } from '../src/lib/patrones/tipos';

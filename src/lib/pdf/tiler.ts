@@ -82,6 +82,21 @@ export function disposicionPlana(piezas: Pieza[], sep = 2): DisposicionPlana {
   return { piezas: posicionadas, bbox, tiles, cols, rows };
 }
 
+// La grilla de tiles es rectangular, pero las piezas no llenan el rectángulo:
+// los tiles que ningún molde toca saldrían como hojas en blanco. `margen` es el
+// margen de costura, que corre por fuera del contorno.
+export function tilesConPiezas(disp: DisposicionPlana, margen = 0): Tile[] {
+  const cajas = disp.piezas.map(({ pieza, dx, dy }) => ({
+    x0: pieza.bbox.x + dx - margen,
+    y0: pieza.bbox.y + dy - margen,
+    x1: pieza.bbox.x + dx + pieza.bbox.w + margen,
+    y1: pieza.bbox.y + dy + pieza.bbox.h + margen,
+  }));
+  return disp.tiles.filter((t) =>
+    cajas.some((c) => !(c.x1 < t.x0 || c.x0 > t.x1 || c.y1 < t.y0 || c.y0 > t.y1)),
+  );
+}
+
 // Traduce un punto del molde + offset de pieza al sistema global de la disposición.
 export const punto2Global = (p: Punto, dx: number, dy: number): Punto => ({
   x: p.x + dx,

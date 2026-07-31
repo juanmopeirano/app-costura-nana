@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import type { Patron, Pieza } from '../lib/patrones/tipos';
+import { offsetPolilineaCerrada } from '../lib/patrones/offset';
+import { pathDesdePuntos } from '../lib/patrones/geometria';
 
 type Props = {
   patron: Patron;
@@ -8,7 +10,10 @@ type Props = {
 };
 
 export default function PatronPreview({ patron, mostrarMargen = true, margen = 1 }: Props) {
-  const layout = useMemo(() => calcularLayout(patron.piezas, 2), [patron.piezas]);
+  const layout = useMemo(
+    () => calcularLayout(patron.piezas, 2, mostrarMargen ? margen : 0),
+    [patron.piezas, mostrarMargen, margen],
+  );
 
   return (
     <div className="rounded-2xl border border-baya-100 bg-crema-50 shadow-paper overflow-hidden">
@@ -30,7 +35,7 @@ export default function PatronPreview({ patron, mostrarMargen = true, margen = 1
       </div>
       <div className="p-2 bg-paper-grid bg-grid-cm">
         <svg
-          viewBox={`${layout.minX - 2} ${layout.minY - 2} ${layout.w + 4} ${layout.h + 4}`}
+          viewBox={`${layout.x} ${layout.y} ${layout.w} ${layout.h}`}
           className="w-full h-auto"
           style={{ maxHeight: '70vh' }}
         >
@@ -45,12 +50,11 @@ export default function PatronPreview({ patron, mostrarMargen = true, margen = 1
               />
               {mostrarMargen && (
                 <path
-                  d={p.pieza.contornoPath}
+                  d={p.corte}
                   fill="none"
                   stroke="#7a2a3e"
-                  strokeWidth={0.08}
-                  strokeDasharray="0.4 0.4"
-                  style={{ filter: `drop-shadow(0 0 ${margen}px #7a2a3e44)` }}
+                  strokeWidth={0.12}
+                  strokeDasharray="0.5 0.4"
                 />
               )}
               {p.pieza.pinzas.map((linea, j) => (
@@ -131,15 +135,27 @@ function Leyenda({
   );
 }
 
-function calcularLayout(piezas: Pieza[], sep: number) {
+function calcularLayout(piezas: Pieza[], sep: number, margen: number) {
   let cursorX = 0;
   let totalH = 0;
   const acomodadas = piezas.map((pieza) => {
     const tx = cursorX - pieza.bbox.x;
     const ty = -pieza.bbox.y;
-    cursorX += pieza.bbox.w + sep;
+    cursorX += pieza.bbox.w + sep + 2 * margen;
     totalH = Math.max(totalH, pieza.bbox.h);
-    return { pieza, tx, ty };
+    return {
+      pieza,
+      tx,
+      ty,
+      corte: pathDesdePuntos(offsetPolilineaCerrada(pieza.contornoPuntos, margen), true),
+    };
   });
-  return { piezas: acomodadas, minX: -2, minY: -2, w: cursorX, h: totalH };
+  const borde = 2 + margen;
+  return {
+    piezas: acomodadas,
+    x: -borde,
+    y: -borde,
+    w: cursorX - sep + 2 * borde,
+    h: totalH + 2 * borde,
+  };
 }
