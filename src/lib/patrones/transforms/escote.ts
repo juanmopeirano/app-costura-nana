@@ -98,27 +98,47 @@ function anchoEscote(m: Medidas, lado: LadoCorpino, escote: Escote): number {
   }
 }
 
-function profundidadEscote(m: Medidas, lado: LadoCorpino, escote: Escote): number {
+// Profundidad del escote base, derivada de las medidas del cuerpo tal como lo
+// hace el manual SENA (pp.21-25):
+//
+//   profundidad cuello espalda   = talle atrás  - centro atrás
+//   profundidad cuello delantero = talle frente - centro frente
+//
+// Ambas medidas arrancan en la misma línea superior del trazado: el talle llega
+// hasta el hombro y el centro hasta la base del cuello, así que la diferencia
+// es exactamente cuánto baja el escote. Para la talla 8 SENA da 42-40=2cm atrás
+// y 44-36.75=7.25cm adelante.
+function profundidadBase(m: Medidas, lado: LadoCorpino): number {
   if (lado === 'espalda') {
-    // Espalda casi siempre 2-3cm (excepto V o cuadrado pueden ser más)
+    const medido = m.talleAtras - m.centroAtras;
+    return medido > 0.5 && medido < 8 ? medido : 2;
+  }
+  const medido = m.talleFrente - m.centroFrente;
+  return medido > 2 && medido < 20 ? medido : m.cuello / 5 + 1.5;
+}
+
+function profundidadEscote(m: Medidas, lado: LadoCorpino, escote: Escote): number {
+  const base = profundidadBase(m, lado);
+  if (lado === 'espalda') {
+    // La espalda arranca del escote base y sólo se profundiza en los diseños
+    // que lo piden explícitamente.
     switch (escote) {
       case 'v':
-        return 6;
+        return base + 3.5;
       case 'cuadrado':
-        return 4;
+        return base + 1.5;
       default:
-        return 2.5;
+        return base;
     }
   }
-  // Delantero
-  const base = m.cuello / 5 + 1.5;
+  // Delantero. El redondo es el escote del patrón base: no lleva agregado.
   switch (escote) {
     case 'v':
-      return Math.min(20, base + 8);
+      return Math.min(22, base + 9);
     case 'cuadrado':
       return base + 5;
     case 'barco':
-      return Math.max(base - 1, 2);
+      return Math.max(base - 3, 2);
     case 'bebe':
       return base + 1;
     case 'camisero':
@@ -127,6 +147,6 @@ function profundidadEscote(m: Medidas, lado: LadoCorpino, escote: Escote): numbe
       return base + 0.5;
     case 'redondo':
     default:
-      return base + 1.5;
+      return base;
   }
 }

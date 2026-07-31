@@ -17,7 +17,7 @@ export type PasoMedida = {
   tip?: string;
 };
 
-// 23 medidas en orden didáctico — agrupadas para que la usuaria no tenga que
+// Medidas en orden didáctico — agrupadas para que la usuaria no tenga que
 // cambiar de cinta/posición demasiado entre pasos. Instrucciones tomadas del
 // Manual SENA de Patronaje Básico (2011), pp. 13-17.
 export const CATALOGO_MEDIDAS: PasoMedida[] = [
@@ -180,19 +180,9 @@ export const CATALOGO_MEDIDAS: PasoMedida[] = [
     defecto: 43,
     requerida: true,
   },
-  {
-    id: 'largoEspalda',
-    label: 'Largo de espalda',
-    instruccion:
-      'Cinta desde la séptima vértebra cervical (huesito que sobresale al inclinar la cabeza) hasta el promontorio lumbar (cintura por la espalda).',
-    categoria: 'largo',
-    vista: 'posterior',
-    highlight: 'largo_espalda',
-    min: 32,
-    max: 48,
-    defecto: 40,
-    requerida: true,
-  },
+  // "Largo de espalda" salía acá pidiendo exactamente lo mismo que "Centro
+  // atrás" (séptima cervical hasta la cintura por la columna). Era medir dos
+  // veces lo mismo y el motor nunca lo usaba, así que quedó una sola.
   {
     id: 'centroFrente',
     label: 'Centro frente',

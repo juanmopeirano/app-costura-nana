@@ -16,18 +16,22 @@ const dis: Diseno = {
 };
 
 describe('baseManga', () => {
-  it('genera una manga simétrica con largo dado', () => {
+  it('genera una manga con largo dado, asimétrica entre frente y espalda', () => {
     const m = { ...MEDIDAS_VACIAS, ...TALLAS_SENA[12], brazo: 28, muneca: 16, largoManga: 60 };
     const pieza = baseManga(m, dis, 50);
     expect(pieza.nombre).toBe('Manga');
     expect(pieza.cantidad).toBe(2);
     expect(pieza.cortarSobreDoblez).toBe(false);
-    // Largo en bbox
     expect(pieza.bbox.h).toBeCloseTo(50, 0);
-    // El bbox debe ser simétrico alrededor de x = 0
+    // La manga cruza el eje: el delantero cae en x<0 y el posterior en x>0.
     expect(pieza.bbox.x).toBeLessThan(0);
     expect(pieza.bbox.x + pieza.bbox.w).toBeGreaterThan(0);
-    expect(Math.abs(pieza.bbox.x + (pieza.bbox.x + pieza.bbox.w))).toBeLessThan(0.5);
+    // Y NO es simétrica: cada mitad de la copa se levanta sobre su propia sisa,
+    // que no miden lo mismo. Una manga simétrica no tiene derecho ni revés y se
+    // tuerce en el brazo.
+    const semiFrente = Math.abs(pieza.bbox.x);
+    const semiEspalda = pieza.bbox.x + pieza.bbox.w;
+    expect(semiFrente).toBeGreaterThan(semiEspalda + 0.5);
   });
 
   it('manga 3/4 tiene un largo intermedio entre corta y larga', () => {
